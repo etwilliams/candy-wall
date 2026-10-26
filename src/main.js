@@ -706,13 +706,15 @@ function drawIcon(icon, d, color) {
 
 function drawCapsule(d) {
   const p = POWERUPS[d.type];
-  ctx.beginPath(); ctx.roundRect(d.x - CAPSULE_W / 2, d.y - CAPSULE_H / 2, CAPSULE_W, CAPSULE_H, CAPSULE_H / 2);
-  if (p.bad) {
-    ctx.fillStyle = '#2a0f14'; ctx.fill();
-    ctx.lineWidth = 2; ctx.strokeStyle = p.color; ctx.stroke();
+  const cpx = Math.max(2, Math.round(CAPSULE_H / 9)), x = d.x - CAPSULE_W / 2, y = d.y - CAPSULE_H / 2;
+  if (p.bad) { // dark pill with a pixel outline
+    pixelPill(x, y, CAPSULE_W, CAPSULE_H, p.color, cpx);
+    pixelPill(x + cpx, y + cpx, CAPSULE_W - 2 * cpx, CAPSULE_H - 2 * cpx, '#2a0f14', cpx);
     drawIcon(p.icon, d, p.color);
   } else {
-    ctx.fillStyle = p.color; ctx.fill();
+    pixelPill(x, y, CAPSULE_W, CAPSULE_H, shade(p.color, -0.3), cpx); // dark rim, then the lit body on top
+    pixelPill(x, y, CAPSULE_W - cpx, CAPSULE_H - cpx, p.color, cpx);
+    ctx.fillStyle = shade(p.color, 0.45); ctx.fillRect(Math.round(x + CAPSULE_H / 2), Math.round(y), Math.round(CAPSULE_W - CAPSULE_H), cpx); // top highlight
     drawIcon(p.icon, d, p.iconColor || '#111');
   }
 }
@@ -744,11 +746,85 @@ function drawTitle() {
   if (titleT > landedAt && Math.floor(Date.now() / 500) % 2 === 0) text(START + ' to start', W / 2, H / 2 + size, Math.max(10, size * 0.28), '#ccc');
 }
 
+// --- 8-bit shapes: notched corners and a hard pixel bevel instead of anti-aliased curves ---
+function shade(hex, amt) { // amt > 0 mixes toward white, < 0 toward black
+  const n = parseInt(hex.slice(1), 16), t = amt < 0 ? 0 : 255, a = Math.abs(amt);
+  const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v + (t - v) * a));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+// rectangle with the four corner pixels cut off (px = pixel size)
+function notchPath(x, y, w, h, px) {
+  ctx.beginPath();
+  ctx.moveTo(x + px, y); ctx.lineTo(x + w - px, y); ctx.lineTo(x + w - px, y + px); ctx.lineTo(x + w, y + px);
+  ctx.lineTo(x + w, y + h - px); ctx.lineTo(x + w - px, y + h - px); ctx.lineTo(x + w - px, y + h); ctx.lineTo(x + px, y + h);
+  ctx.lineTo(x + px, y + h - px); ctx.lineTo(x, y + h - px); ctx.lineTo(x, y + px); ctx.lineTo(x + px, y + px);
+  ctx.closePath();
+}
+
+// flat color body, light top/left edge, dark bottom/right edge, and a two-pixel glint
+function pixelBox(x, y, w, h, color, px) {
+  x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
+  ctx.fillStyle = color;
+  ctx.fillRect(x + px, y, w - 2 * px, h);
+  ctx.fillRect(x, y + px, w, h - 2 * px);
+  ctx.fillStyle = shade(color, -0.3);
+  ctx.fillRect(x + px, y + h - px, w - 2 * px, px);
+  ctx.fillRect(x + w - px, y + px, px, h - 2 * px);
+  ctx.fillStyle = shade(color, 0.4);
+  ctx.fillRect(x + px, y, w - 2 * px, px);
+  ctx.fillRect(x, y + px, px, h - 2 * px);
+  if (h >= px * 4 && w >= px * 6) {
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillRect(x + px * 2, y + px * 2, px * 2, px);
+  }
+}
+
+// stepped (pixelated) ellipse, filled row by row; ring = true draws only the outline
+function pixelDisc(cx, cy, rx, ry, color, px, ring = false) {
+  const n = Math.max(1, Math.round(ry * 2 / px)), top = Math.round(cy - n * px / 2);
+  const widths = [];
+  for (let i = 0; i < n; i++) {
+    const dy = (i + 0.5 - n / 2) * px;
+    widths.push(Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy / (n * px / 2)) ** 2)) / px) * px);
+  }
+  ctx.fillStyle = color;
+  widths.forEach((w, i) => {
+    if (w <= 0) return;
+    const y = top + i * px, x = Math.round(cx);
+    let inner = 0;
+    if (ring && i > 0 && i < n - 1) inner = Math.min(widths[i - 1], widths[i + 1], w - px);
+    if (!ring || inner <= 0) { ctx.fillRect(x - w, y, w * 2, px); return; }
+    ctx.fillRect(x - w, y, w - inner, px); ctx.fillRect(x + inner, y, w - inner, px);
+  });
+}
+
+// the ball: dark disc, a lit disc nudged up-left so a dark crescent is left bottom-right, and a pixel glint
+function pixelBall(cx, cy, rx, ry, color, px) {
+  pixelDisc(cx, cy, rx, ry, shade(color, -0.32), px);
+  pixelDisc(cx - px / 2, cy - px / 2, rx - px / 2, ry - px / 2, color, px);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  const gx = Math.round(cx - rx * 0.5), gy = Math.round(cy - ry * 0.55);
+  ctx.fillRect(gx, gy, px * 2, px); ctx.fillRect(gx, gy + px, px, px);
+}
+
+// pill with a stepped (pixelated) end cap, drawn row by row
+function pixelPill(x, y, w, h, color, px) {
+  x = Math.round(x); y = Math.round(y);
+  const rows = Math.round(h / px), cap = Math.floor(rows / 2);
+  for (let i = 0; i < rows; i++) {
+    const d = i < cap ? cap - i : i >= rows - cap ? i - (rows - cap - 1) : 0; // rows from the middle
+    const inset = d ? Math.round(cap - Math.sqrt(Math.max(0, cap * cap - (d - 0.5) * (d - 0.5)))) * px : 0;
+    ctx.fillStyle = color;
+    ctx.fillRect(x + inset, y + i * px, Math.round(w) - inset * 2, px);
+  }
+}
+
 // two-hit brick: darker, with mortar lines like a brick wall, and cracks once it has taken a hit
-function drawToughBrick(b, rad) {
+function drawToughBrick(b, px) {
   const lw = Math.max(1, BH * 0.07);
   ctx.save();
-  ctx.beginPath(); ctx.roundRect(b.x, b.y, BW, BH, rad); ctx.clip();
+  notchPath(b.x, b.y, BW, BH, px); ctx.clip();
   ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(b.x, b.y, BW, BH);
   ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = lw;
   ctx.beginPath();
@@ -788,14 +864,9 @@ function drawScene() {
 
   for (const b of bricks) {
     if (!b.alive) continue;
-    const rad = BH * 0.28;
-    ctx.fillStyle = b.color;
-    ctx.beginPath(); ctx.roundRect(b.x, b.y, BW, BH, rad); ctx.fill();
-    if (b.maxHp > 1) drawToughBrick(b, rad);
-    else {
-      ctx.fillStyle = 'rgba(255,255,255,0.25)';
-      ctx.beginPath(); ctx.roundRect(b.x + rad, b.y + BH * 0.1, BW - rad * 2, BH * 0.15, BH * 0.07); ctx.fill();
-    }
+    const bpx = Math.max(2, Math.round(BH / 8));
+    pixelBox(b.x, b.y, BW, BH, b.color, bpx);
+    if (b.maxHp > 1) drawToughBrick(b, bpx);
   }
 
   for (const d of drops) drawCapsule(d);
@@ -809,12 +880,9 @@ function drawScene() {
     }
   }
 
-  ctx.fillStyle = narrowT > 0 ? '#ff8a8a' : wideT > 0 ? '#ffe28a' : stickyT > 0 ? '#d6ec7a' : '#c9cde0';
+  const padColor = narrowT > 0 ? '#ff8a8a' : wideT > 0 ? '#ffe28a' : stickyT > 0 ? '#d6ec7a' : '#c9cde0';
   const padY = paddle.y - LIFT * paddle.punch;
-  const ph = paddle.h, pw = paddle.w, px = paddle.x, py = padY, pad = ph * 0.4;
-  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, pad); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.55)'; // short rounded glint, same shape as the ball's
-  ctx.beginPath(); ctx.roundRect(px + pad, py + ph * 0.14, paddle.h * 1.3, ph * 0.22, ph * 0.11); ctx.fill();
+  pixelBox(paddle.x, padY, paddle.w, paddle.h, padColor, Math.max(2, Math.round(paddle.h / 5)));
 
   if (missileT > 0) { // armed: little launchers on the paddle ends
     ctx.fillStyle = '#b57bff';
@@ -845,14 +913,11 @@ function drawScene() {
   }
 
   for (const ball of balls) {
-    ctx.fillStyle = ball.fire ? '#ff5a1f' : ball.boost > 1 ? '#ffd24d' : '#c9cde0';
+    const ballColor = ball.fire ? '#ff5a1f' : ball.boost > 1 ? '#ffd24d' : '#c9cde0';
     // flatten along the bounce axis and bulge across it
     const along = ball.r * (1 - 0.3 * ball.sq), across = ball.r * (1 + 0.2 * ball.sq);
     const rx = ball.sqAxis === 'x' ? along : across, ry = ball.sqAxis === 'x' ? across : along;
-    ctx.beginPath(); ctx.ellipse(ball.x, ball.y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(255,255,255,0.55)'; // short rounded glint at the upper left, same shape as the paddle's
-    ctx.beginPath(); ctx.roundRect(ball.x - rx * 0.62, ball.y - ry * 0.62, rx * 0.7, ry * 0.24, ball.r * 0.12); ctx.fill();
+    pixelBall(ball.x, ball.y, rx, ry, ballColor, Math.max(2, Math.round(ball.r / 4)));
   }
 
   text(String(score).padStart(5, '0'), W / 2, TOP * 0.76, 26 * scale, '#fff'); // centered above the bricks
@@ -861,14 +926,9 @@ function drawScene() {
   const lr = 8 * scale;
   for (let i = 0; i < Math.max(3, lives); i++) {
     const lx = W - 22 * scale - i * 26 * scale, ly = 24 * scale;
-    ctx.beginPath(); ctx.arc(lx, ly, lr, 0, Math.PI * 2);
-    if (i < lives) {
-      ctx.fillStyle = '#c9cde0'; ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.beginPath(); ctx.roundRect(lx - lr * 0.62, ly - lr * 0.62, lr * 0.7, lr * 0.24, lr * 0.12); ctx.fill();
-    } else {
-      ctx.strokeStyle = 'rgba(201,205,224,0.3)'; ctx.lineWidth = Math.max(1, 1.5 * scale); ctx.stroke();
-    }
+    const lpx = Math.max(2, Math.round(lr / 4));
+    if (i < lives) pixelBall(lx, ly, lr, lr, '#c9cde0', lpx);
+    else pixelDisc(lx, ly, lr, lr, 'rgba(201,205,224,0.3)', lpx, true);
   }
 
   // active timed effects, just under the bricks
