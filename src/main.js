@@ -6,7 +6,7 @@ const ctx = canvas.getContext('2d');
 let W, H;
 const BASE_LIFT = 30, BOOST = 1.8; // paddle pop height (px at design size) and ball speed multiplier from a punched hit
 let LIFT, scale, CAPSULE_W, CAPSULE_H; // scale: window size relative to the 640x480 design size
-const BASE_W = 640; // speeds below are tuned for this width and scaled to the actual width
+const BASE_W = 640; // design width; speeds are tuned at 640x480 and scaled by `scale`, never by frame rate
 
 const COLORS = ['#ff4d4d', '#ff944d', '#ffd24d', '#6bd86b', '#4dc3ff', '#9b6bff', '#ff6bd1'];
 const ROWS = 7, COLS = 10;
@@ -170,7 +170,7 @@ function newBall(x, y, dx, dy) {
 }
 
 function layout() {
-  const oldW = W, oldH = H;
+  const oldW = W, oldH = H, oldScale = scale;
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
   scale = Math.min(W / BASE_W, H / BASE_H);
@@ -184,7 +184,7 @@ function layout() {
   if (oldW) {
     const kx = W / oldW, ky = H / oldH;
     paddle.x *= kx;
-    for (const b of balls || []) { b.x *= kx; b.y *= ky; b.dx *= kx; b.dy *= kx; }
+    for (const b of balls || []) { b.x *= kx; b.y *= ky; b.dx *= scale / oldScale; b.dy *= scale / oldScale; }
     for (const d of drops || []) { d.x *= kx; d.y *= ky; }
     for (const m of missiles || []) { m.x *= kx; m.y *= ky; }
   } else {
@@ -334,7 +334,7 @@ function launch() {
   if (!stuck || slideT < 1) return; // wait for the new bricks to land
   stuck = false;
   const a = (Math.random() * 60 - 30) * Math.PI / 180;
-  const s = 4.5 * W / BASE_W * levelSpeed();
+  const s = 4.5 * scale * levelSpeed();
   balls[0].dx = s * Math.sin(a);
   balls[0].dy = -s * Math.cos(a);
   // launch like a punched hit: the paddle pops up and sends the ball off charged
@@ -477,8 +477,8 @@ function updateSparks() {
 }
 
 function updatePaddle() {
-  if (keys.ArrowLeft) paddle.x = Math.max(0, paddle.x - paddle.speed);
-  if (keys.ArrowRight) paddle.x = Math.min(W - paddle.w, paddle.x + paddle.speed);
+  if (keys.ArrowLeft) paddle.x = Math.max(0, paddle.x - paddle.speed * scale);
+  if (keys.ArrowRight) paddle.x = Math.min(W - paddle.w, paddle.x + paddle.speed * scale);
 
   if (wideT > 0) wideT--;
   if (narrowT > 0) narrowT--;
@@ -517,7 +517,7 @@ function updateBall(ball, py) {
     if (ball.dy > 0 && ball.y + ball.r >= py && ball.y - ball.r <= paddle.y + paddle.h &&
         ball.x >= paddle.x - ball.r && ball.x <= paddle.x + paddle.w + ball.r) {
       const hit = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2); // -1..1
-      const speed = Math.min(8 * W / BASE_W * levelSpeed(), Math.hypot(ball.dx, ball.dy));
+      const speed = Math.min(8 * scale * levelSpeed(), Math.hypot(ball.dx, ball.dy));
       const a = hit * 65 * Math.PI / 180;
       ball.dx = speed * Math.sin(a);
       ball.dy = -speed * Math.cos(a);
@@ -615,7 +615,7 @@ function update() {
   updateMissiles();
 
   // falling power-ups: caught by the paddle or lost off the bottom
-  const fall = 2.5 * W / BASE_W;
+  const fall = 2.5 * scale;
   drops = drops.filter(d => {
     d.y += fall;
     if (d.y - CAPSULE_H / 2 <= paddle.y + paddle.h && d.y + CAPSULE_H / 2 >= py &&
@@ -869,12 +869,25 @@ function drawScene() {
   }
 }
 
-function loop() {
+// fixed 60 Hz simulation: a 120/144 Hz display draws more often but the game doesn't run faster
+const STEP_MS = 1000 / 60;
+let lastFrame = 0, accumulator = 0;
+
+function tick() {
   if (!paused) { bgT++; shake *= 0.86; }
   if (state === 'title') titleT++;
-  update(); draw(); requestAnimationFrame(loop);
+  update();
+}
+
+function loop(now) {
+  if (!lastFrame) lastFrame = now;
+  accumulator += Math.min(100, now - lastFrame); // cap so a backgrounded tab doesn't fast-forward
+  lastFrame = now;
+  while (accumulator >= STEP_MS) { tick(); accumulator -= STEP_MS; }
+  draw();
+  requestAnimationFrame(loop);
 }
 addEventListener('resize', layout);
 reset();
 state = 'title';
-loop();
+requestAnimationFrame(loop);
