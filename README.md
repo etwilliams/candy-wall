@@ -4,7 +4,15 @@ It's a wall of candy. A canvas breakout game with 8-bit looks and sound, built w
 
 **Play:** https://etwilliams.github.io/candy-wall/
 
+<p align="center">
+  <img src="docs/title.png" alt="The Candy Wall title screen" width="720">
+</p>
+
 ## How to play
+
+<p align="center">
+  <img src="docs/gameplay.png" alt="Gameplay: a wall of colored candy bricks, with a ball and paddle" width="720">
+</p>
 
 Break every brick to clear the level. You have three balls (lives); lose one when it falls past the paddle. Each level is a little faster, and more bricks need two hits.
 
@@ -19,9 +27,19 @@ Break every brick to clear the level. You have three balls (lives); lose one whe
 
 **Tough bricks** (darker, with a brick pattern) take two hits and show cracks after the first.
 
+Clear every brick and a new wall drops in, with the level and your score shown briefly:
+
+<p align="center">
+  <img src="docs/level.png" alt="A new level's bricks have just landed, with the level and score banner" width="720">
+</p>
+
 ## Power-ups
 
 Bricks sometimes drop a capsule. Catch it with the paddle.
+
+<p align="center">
+  <img src="docs/powerups.png" alt="All the power-up and power-down capsules with their names" width="720">
+</p>
 
 | Capsule | Effect |
 |---|---|
