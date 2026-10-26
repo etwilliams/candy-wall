@@ -18,10 +18,12 @@ Break every brick to clear the level. You have three balls (lives); lose one whe
 
 | Input | Action |
 |---|---|
-| Mouse / touch / ← → | Move the paddle |
-| Click / tap / Space | Launch the ball, or pop the paddle up |
+| Mouse / ← → / drag (touch) | Move the paddle |
+| Click / Space / tap (touch) | Launch the ball, or pop the paddle up |
 | Esc | Pause |
 | M | Mute |
+
+**Touch:** drag left or right anywhere to slide the paddle, and tap to launch or pop. Tapping with a second finger while dragging also pops, so you can boost without letting go.
 
 **Pop shot:** clicking pops the paddle up. A ball hit while the paddle is up is boosted: faster, and it smashes through the first brick it touches. Launching works the same way.
 

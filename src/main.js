@@ -175,7 +175,7 @@ function layout() {
   H = canvas.height = window.innerHeight;
   scale = Math.min(W / BASE_W, H / BASE_H);
   const k = scale;
-  GAP = BASE_GAP * k; TOP = BASE_TOP * k; BH = BASE_BH * k;
+  GAP = BASE_GAP * k; TOP = Math.max(BASE_TOP * k, 56); BH = BASE_BH * k; // keep room for the HUD on small screens
   LIFT = BASE_LIFT * k;
   CAPSULE_W = BASE_CAPSULE_W * k; CAPSULE_H = BASE_CAPSULE_H * k;
   paddle.h = PADDLE_H * k;
@@ -333,6 +333,7 @@ function launch() {
   if (state !== 'play') { reset(); return; }
   if (!stuck || slideT < 1) return; // wait for the new bricks to land
   stuck = false;
+  document.getElementById('hint').style.opacity = '0'; // the controls hint has done its job
   const a = (Math.random() * 60 - 30) * Math.PI / 180;
   const s = 4.5 * scale * levelSpeed();
   balls[0].dx = s * Math.sin(a);
@@ -362,8 +363,48 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => keys[e.key] = false);
 canvas.addEventListener('mousemove', e => movePaddleTo(e.clientX));
 canvas.addEventListener('mousedown', action);
-canvas.addEventListener('touchstart', e => { movePaddleTo(e.touches[0].clientX); action(); e.preventDefault(); }, { passive: false });
-canvas.addEventListener('touchmove', e => { movePaddleTo(e.touches[0].clientX); e.preventDefault(); }, { passive: false });
+
+// Touch: drag left/right to slide the paddle (relative, so the finger never hides it), tap to launch / pop the paddle.
+// A second finger tapping while the first is dragging also fires, so you can boost without lifting off.
+const TOUCH_GAIN = 1.4, TAP_MAX_MOVE = 12, TAP_MAX_MS = 300;
+let drag = null; // { id, lastX, startX, startT, moved }
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  sound.unlock();
+  for (const t of e.changedTouches) {
+    if (!drag) drag = { id: t.identifier, lastX: t.clientX, startX: t.clientX, startT: performance.now(), moved: false };
+    else action(); // extra finger = tap
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!drag) return;
+  for (const t of e.changedTouches) {
+    if (t.identifier !== drag.id) continue;
+    const rect = canvas.getBoundingClientRect();
+    paddle.x = Math.max(0, Math.min(W - paddle.w, paddle.x + (t.clientX - drag.lastX) * (W / rect.width) * TOUCH_GAIN));
+    drag.lastX = t.clientX;
+    if (Math.abs(t.clientX - drag.startX) > TAP_MAX_MOVE) drag.moved = true;
+  }
+}, { passive: false });
+
+const endTouch = e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (!drag || t.identifier !== drag.id) continue;
+    if (e.type === 'touchend' && !drag.moved && performance.now() - drag.startT < TAP_MAX_MS) action(); // a quick tap
+    drag = null;
+  }
+};
+canvas.addEventListener('touchend', endTouch, { passive: false });
+canvas.addEventListener('touchcancel', endTouch, { passive: false });
+
+// wording that fits the device
+const TOUCH = matchMedia('(pointer: coarse)').matches;
+const START = TOUCH ? 'Tap' : 'Click or press Space';
+if (TOUCH) document.getElementById('hint').textContent = 'Drag left / right: move the paddle  ·  Tap: launch, or pop the paddle (a hit while popped boosts the ball)';
 
 function maybeDrop(b) {
   if (Math.random() > DROP_CHANCE) return;
@@ -700,7 +741,7 @@ function drawTitle() {
   ctx.globalAlpha = Math.max(0, Math.min(1, (titleT - landedAt) / 30));
   text('its a wall of candy', W / 2, H / 2 - size * 0.15, size * 0.22, '#ffb3e6');
   ctx.globalAlpha = 1;
-  if (titleT > landedAt && Math.floor(Date.now() / 500) % 2 === 0) text('Click or press Space to start', W / 2, H / 2 + size, Math.max(10, size * 0.28), '#ccc');
+  if (titleT > landedAt && Math.floor(Date.now() / 500) % 2 === 0) text(START + ' to start', W / 2, H / 2 + size, Math.max(10, size * 0.28), '#ccc');
 }
 
 // two-hit brick: darker, with mortar lines like a brick wall, and cracks once it has taken a hit
@@ -830,7 +871,7 @@ function drawScene() {
     }
   }
 
-  // active timed effects, under the level label
+  // active timed effects, just under the bricks
   const active = [];
   if (bigT > 0) active.push(['Big ball', bigT, '#6bd86b']);
   if (missileT > 0) active.push(['Missiles', missileT, '#b57bff']);
@@ -843,7 +884,7 @@ function drawScene() {
   if (balls.some(b => b.fire)) active.push(['Fireball', 0, '#ff7a2f']);
   active.forEach(([name, t, color], i) => {
     const label = t ? `${name} ${Math.ceil(t / 60)}s` : name;
-    text(label, 10, 70 + i * 18, 10, color, 'left');
+    text(label, 10, TOP + ROWS * (BH + GAP) + 22 * scale + i * 18, 10, color, 'left'); // in the open space below the wall
   });
 
   if (bannerT > 0 && state === 'play') {
@@ -855,17 +896,17 @@ function drawScene() {
     ctx.globalAlpha = 1;
   }
 
-  if (state === 'play' && stuck) text('Click or press Space to launch', W / 2, H / 2 + 60, 12, '#ccc');
+  if (state === 'play' && stuck) text(START + ' to launch', W / 2, H / 2 + 60, 12, '#ccc');
   if (paused) {
     ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);
     text('Paused', W / 2, H / 2 - 10, 32);
-    text('Press Esc or click to resume', W / 2, H / 2 + 30, 12, '#ccc');
+    text(TOUCH ? 'Tap to resume' : 'Press Esc or click to resume', W / 2, H / 2 + 30, 12, '#ccc');
   }
   if (state === 'title') drawTitle();
   else if (state !== 'play') {
     ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(0, 0, W, H);
     text('Game over', W / 2, H / 2 - 10, 32);
-    text('Score: ' + score + ' — click or press Space to play again', W / 2, H / 2 + 30, 12, '#ccc');
+    text('Score: ' + score + ' — ' + START.toLowerCase() + ' to play again', W / 2, H / 2 + 30, 12, '#ccc');
   }
 }
 
