@@ -9,7 +9,31 @@
   "background_color": "#1b1b2f",
   "theme_color": "#1b1b2f",
   "icons": [
-    { "src": "candygrid-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "candygrid-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-  ]
+    {
+      "src": "candygrid-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "candygrid-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "candygrid-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "candygrid-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "id": "./candygrid.html",
+  "lang": "en"
 }
