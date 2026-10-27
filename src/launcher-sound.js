@@ -51,7 +51,7 @@ export const sfx = {
   },
 
   // moving the highlight between games
-  move() { tone({ type: 'square', from: 660, to: 880, dur: 0.05, vol: 0.07 }); },
+  move() { sound.tick(); },
 
   // picking a game: a rising run with a thump
   select() { sound.select(); },

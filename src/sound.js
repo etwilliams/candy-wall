@@ -136,6 +136,9 @@ export const sound = {
     noise({ dur: 0.5, vol: 0.15, hold: 16, filter: { from: 1200, to: 80 }, delay: 0.66 });
   },
 
+  // a light button press / menu cursor move
+  tick() { tone({ type: 'square', from: 660, to: 880, dur: 0.05, vol: 0.07 }); },
+
   // menu / dialog confirm: a rising run with a thump
   select() {
     [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>

@@ -56,7 +56,7 @@ export function installBackButton({ pause, resume, isPlaying, menuUrl = './' }) 
     wasPlaying = false;
   }
 
-  btn.addEventListener('click', open);
+  btn.addEventListener('click', () => { sound.tick(); open(); });
   stay.addEventListener('click', () => { sound.select(); close(); });
   quit.addEventListener('click', () => { sound.select(); setTimeout(() => { location.href = menuUrl; }, 280); }); // let the click sound finish
   overlay.addEventListener('pointerdown', e => { if (e.target === overlay) close(); }); // tapping the backdrop cancels
