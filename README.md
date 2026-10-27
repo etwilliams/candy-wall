@@ -8,6 +8,8 @@ It's a wall of candy. A canvas breakout game with 8-bit looks and sound, built w
   <img src="docs/title.png" alt="The Candy Wall title screen" width="720">
 </p>
 
+**Also here: Block Blast.** A drag-and-drop block puzzle in the same 8-bit style, at https://etwilliams.github.io/candy-wall/blockblast.html (locally, `/blockblast.html`). Drag pieces onto the 8x8 grid and fill whole rows or columns to clear them.
+
 ## How to play
 
 <p align="center">
@@ -70,6 +72,7 @@ All sound is synthesized with the Web Audio API, so there are no audio files. Th
 
 - `src/main.js`: game logic, drawing and input
 - `src/sound.js`: sound effects and music
+- `blockblast.html`, `src/blockblast.js`, `src/blockblast-sound.js`: the Block Blast game, built on the shared audio helpers in `sound.js`
 
 ## Deployment
 

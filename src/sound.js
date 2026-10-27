@@ -4,7 +4,7 @@ let muted = false;
 let lastBrick = 0;
 let lastPop = 0;
 
-function ctx() {
+export function ctx() {
   if (!ac) {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
@@ -15,7 +15,7 @@ function ctx() {
 }
 
 // one oscillator with a quick attack and exponential decay; freq can sweep from -> to
-function tone({ type = 'sine', from, to = from, dur = 0.12, vol = 0.2, delay = 0, filter }) {
+export function tone({ type = 'sine', from, to = from, dur = 0.12, vol = 0.2, delay = 0, filter }) {
   const a = ctx();
   if (!a || muted) return;
   const t = a.currentTime + delay;
@@ -42,7 +42,7 @@ function tone({ type = 'sine', from, to = from, dur = 0.12, vol = 0.2, delay = 0
 }
 
 // lo-fi noise: each random sample is held for `hold` samples, which gives the crunchy 8-bit rumble
-function noise({ dur = 0.3, vol = 0.25, hold = 12, filter, delay = 0 }) {
+export function noise({ dur = 0.3, vol = 0.25, hold = 12, filter, delay = 0 }) {
   const a = ctx();
   if (!a || muted) return;
   const len = Math.floor(a.sampleRate * dur);

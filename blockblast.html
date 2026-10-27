@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Block Blast</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #111; color: #eee; font-family: 'Press Start 2P', monospace; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  canvas { display: block; -webkit-tap-highlight-color: transparent; user-select: none; background: #1b1b2f; touch-action: none; }
+  p { position: fixed; bottom: 4px; left: 0; right: 0; text-align: center; margin: 0; font-size: 8px; line-height: 1.6; padding: 0 12px; box-sizing: border-box; color: #888; pointer-events: none; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<p id="hint">Drag a piece onto the grid &nbsp;·&nbsp; Fill a whole row or column to clear it &nbsp;·&nbsp; Clear on back-to-back moves for combos &nbsp;·&nbsp; Esc: pause &nbsp;·&nbsp; N: music on/off &nbsp;·&nbsp; M: mute all</p>
+<script type="module" src="/src/blockblast.js"></script>
+</body>
+</html>
