@@ -615,3 +615,6 @@ layout();
 reset();
 state = 'title';
 requestAnimationFrame(loop);
+
+// installable / offline: the service worker is only registered in production builds so dev reloads stay fresh
+if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('./sw.js').catch(() => {});
