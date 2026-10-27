@@ -2,13 +2,15 @@
 
 It's a wall of candy. A canvas breakout game with 8-bit looks and sound, built with [Vite](https://vite.dev).
 
-**Play:** https://etwilliams.github.io/candy-wall/
+**Play:** https://etwilliams.github.io/candy-wall/ (pick Candy Wall, Candy Grid or Candy Drop from the menu). Candy Wall is also directly at `/wall.html`.
 
 <p align="center">
   <img src="docs/title.png" alt="The Candy Wall title screen" width="720">
 </p>
 
-**Also here: Block Blast.** A drag-and-drop block puzzle in the same 8-bit style, at https://etwilliams.github.io/candy-wall/blockblast.html (locally, `/blockblast.html`). Drag pieces onto the 8x8 grid and fill whole rows or columns to clear them.
+**Also here: Candy Grid.** A drag-and-drop block puzzle in the same 8-bit style, at https://etwilliams.github.io/candy-wall/candygrid.html (locally, `/candygrid.html`). Drag pieces onto the 8x8 grid and fill whole rows or columns to clear them.
+
+**And Candy Drop**, a falling-block stacker with hold, a next queue, a landing ghost and levels, at https://etwilliams.github.io/candy-wall/candydrop.html. Arrow keys move, Up / X and Z rotate, Space hard-drops, C holds. On touch: drag to move, tap to rotate, flick down to hard-drop.
 
 ## How to play
 
@@ -70,9 +72,11 @@ npm run preview  # serve the production build
 
 All sound is synthesized with the Web Audio API, so there are no audio files. The pixel font is [Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P) via `@fontsource`.
 
-- `src/main.js`: game logic, drawing and input
+- `index.html`, `src/launcher.js`, `src/launcher-sound.js`: the game menu and its music
+- `wall.html`, `src/main.js`: Candy Wall game logic, drawing and input
 - `src/sound.js`: sound effects and music
-- `blockblast.html`, `src/blockblast.js`, `src/blockblast-sound.js`: the Block Blast game, built on the shared audio helpers in `sound.js`
+- `candydrop.html`, `src/candydrop.js`, `src/candydrop-sound.js`: the Candy Drop game
+- `candygrid.html`, `src/candygrid.js`, `src/candygrid-sound.js`: the Candy Grid game, built on the shared audio helpers in `sound.js`
 
 ## Deployment
 

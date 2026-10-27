@@ -1,5 +1,6 @@
 import '@fontsource/press-start-2p';
 import { sound } from './sound.js';
+import { installBackButton } from './backbutton.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -921,7 +922,7 @@ function drawScene() {
   }
 
   text(String(score).padStart(5, '0'), W / 2, TOP * 0.76, 26 * scale, '#fff'); // centered above the bricks
-  text('Level ' + level, 10, 48, 10, '#aaa', 'left');
+  text('Level ' + level, 52, 28, 10, '#aaa', 'left'); // beside the back button
   // lives as little balls: solid with a glint while you have them, a faint outline once lost
   const lr = 8 * scale;
   for (let i = 0; i < Math.max(3, lives); i++) {
@@ -992,3 +993,5 @@ addEventListener('resize', layout);
 reset();
 state = 'title';
 requestAnimationFrame(loop);
+
+installBackButton({ pause: () => { paused = true; }, resume: () => { paused = false; }, isPlaying: () => state === 'play' && !paused });

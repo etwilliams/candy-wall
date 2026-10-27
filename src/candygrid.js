@@ -1,5 +1,6 @@
 import '@fontsource/press-start-2p';
-import { sfx } from './blockblast-sound.js';
+import { sfx } from './candygrid-sound.js';
+import { installBackButton } from './backbutton.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -74,9 +75,9 @@ let stars = [];
 let cell, gx, gy, headerH, trayY, scale;
 
 let musicBtn = { x: 0, y: 0, s: 0 }; // hit box of the music button, set when drawn
-try { sfx.toggleMusic(); if (localStorage.getItem('blockblast-music') !== 'off') sfx.toggleMusic(); } catch { /* storage unavailable: music stays on */ }
-try { best = Number(localStorage.getItem('blockblast-best')) || 0; } catch { best = 0; }
-function saveBest() { try { localStorage.setItem('blockblast-best', String(best)); } catch { /* storage unavailable */ } }
+try { sfx.toggleMusic(); if ((localStorage.getItem('candygrid-music') ?? localStorage.getItem('blockblast-music')) !== 'off') sfx.toggleMusic(); } catch { /* storage unavailable: music stays on */ }
+try { best = Number(localStorage.getItem('candygrid-best') ?? localStorage.getItem('blockblast-best')) || 0; } catch { best = 0; }
+function saveBest() { try { localStorage.setItem('candygrid-best', String(best)); } catch { /* storage unavailable */ } }
 
 // --- layout ---
 function layout() {
@@ -217,7 +218,7 @@ function startGame() {
 // --- input ---
 function toggleMusic() {
   const off = sfx.toggleMusic();
-  try { localStorage.setItem('blockblast-music', off ? 'off' : 'on'); } catch { /* storage unavailable */ }
+  try { localStorage.setItem('candygrid-music', off ? 'off' : 'on'); } catch { /* storage unavailable */ }
 }
 
 function pointerPos(e) {
@@ -479,8 +480,9 @@ function drawMusicButton() {
 function drawHud() {
   drawMusicButton();
   const size = Math.min(34, cell * 0.62);
-  text('SCORE', gx, headerH * 0.34, Math.max(8, size * 0.32), '#aaa', 'left');
-  text(String(shownScore), gx, headerH * 0.34 + size * 1.25, size, '#fff', 'left');
+  const sx = Math.max(gx, 52); // clear of the back button
+  text('SCORE', sx, headerH * 0.34, Math.max(8, size * 0.32), '#aaa', 'left');
+  text(String(shownScore), sx, headerH * 0.34 + size * 1.25, size, '#fff', 'left');
   const px = Math.max(2, Math.round(size / 9)), right = gx + cell * N;
   drawCrown(right - 2 * px, headerH * 0.2, px, '#ffd24d');
   text(String(best), right, headerH * 0.34 + size * 1.25, size * 0.8, '#ffd24d', 'right');
@@ -538,7 +540,7 @@ function drawFx() {
 
 function drawTitle() {
   ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, W, H);
-  const title = 'BLOCK BLAST';
+  const title = 'CANDY GRID';
   const size = Math.min(64, W * 0.88 / title.length);
   const x0 = W / 2 - (title.length * size) / 2 + size / 2;
   ctx.textBaseline = 'middle';
@@ -618,3 +620,9 @@ requestAnimationFrame(loop);
 
 // installable / offline: the service worker is only registered in production builds so dev reloads stay fresh
 if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('./sw.js').catch(() => {});
+
+installBackButton({
+  pause: () => { paused = true; drag = null; sfx.setMusic(false); },
+  resume: () => { paused = false; sfx.setMusic(true); },
+  isPlaying: () => state === 'play' && !paused,
+});

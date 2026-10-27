@@ -6,7 +6,7 @@ export default defineConfig({
   base: './',
   build: {
     rollupOptions: {
-      input: { main: resolve(import.meta.dirname, 'index.html'), blockblast: resolve(import.meta.dirname, 'blockblast.html') },
+      input: { index: resolve(import.meta.dirname, 'index.html'), wall: resolve(import.meta.dirname, 'wall.html'), candygrid: resolve(import.meta.dirname, 'candygrid.html'), candydrop: resolve(import.meta.dirname, 'candydrop.html') },
     },
   },
 });

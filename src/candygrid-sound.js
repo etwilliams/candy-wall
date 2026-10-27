@@ -1,4 +1,4 @@
-// Block Blast sound effects and music, built on the same Web Audio helpers as Candy Wall.
+// Candy Grid sound effects and music, built on the same Web Audio helpers as Candy Wall.
 import { ctx, tone, noise, sound } from './sound.js';
 
 const PENTA = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.7, 1318.5, 1568]; // C major pentatonic

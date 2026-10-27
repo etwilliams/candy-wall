@@ -136,6 +136,13 @@ export const sound = {
     noise({ dur: 0.5, vol: 0.15, hold: 16, filter: { from: 1200, to: 80 }, delay: 0.66 });
   },
 
+  // menu / dialog confirm: a rising run with a thump
+  select() {
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
+      tone({ type: 'square', from: f, dur: i === 3 ? 0.25 : 0.07, vol: 0.1, delay: i * 0.06 }));
+    tone({ type: 'sine', from: 150, to: 50, dur: 0.2, vol: 0.3 });
+  },
+
   // call from a user gesture so the browser allows audio
   unlock() { ctx(); },
   toggleMute() { muted = !muted; return muted; },
