@@ -4,7 +4,7 @@
   "description": "A drag-and-drop block puzzle in 8-bit candy style.",
   "start_url": "./candygrid.html",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#1b1b2f",
   "theme_color": "#1b1b2f",
@@ -35,5 +35,9 @@
     }
   ],
   "id": "./candygrid.html",
-  "lang": "en"
+  "lang": "en",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ]
 }
