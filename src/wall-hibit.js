@@ -1,5 +1,9 @@
+import { graphics } from './graphics.js';
+
 // Hi-bit sprites for Candy Wall: smooth gradients, gloss and soft shadows in place of the 8-bit pixel shapes.
 // Every function draws on the context it is given and uses the same geometry as its 8-bit counterpart.
+
+const sb = v => (graphics.lite ? 0 : v); // shadow blur is the costliest effect here, so limited animations drop it
 
 function rgb(hex) { const n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
 function mix(hex, amt) { // amt > 0 mixes toward white, < 0 toward black
@@ -15,7 +19,7 @@ function round(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, Math.m
 export function brick(ctx, x, y, w, h, color) {
   const r = h * 0.3;
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = h * 0.25; ctx.shadowOffsetY = h * 0.1;
+  ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = sb(h * 0.25); ctx.shadowOffsetY = h * 0.1;
   const g = ctx.createLinearGradient(0, y, 0, y + h);
   g.addColorStop(0, mix(color, 0.35)); g.addColorStop(0.5, color); g.addColorStop(1, mix(color, -0.35));
   ctx.fillStyle = g; round(ctx, x, y, w, h, r); ctx.fill();
@@ -32,7 +36,7 @@ export function brick(ctx, x, y, w, h, color) {
 export function toughBrick(ctx, b, w, h) {
   const { x, y } = b, r = h * 0.3, lw = Math.max(1, h * 0.07);
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = h * 0.25; ctx.shadowOffsetY = h * 0.1;
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = sb(h * 0.25); ctx.shadowOffsetY = h * 0.1;
   const g = ctx.createLinearGradient(0, y, 0, y + h);
   g.addColorStop(0, mix(b.color, -0.05)); g.addColorStop(1, mix(b.color, -0.6));
   ctx.fillStyle = g; round(ctx, x, y, w, h, r); ctx.fill();
@@ -70,7 +74,7 @@ export function toughBrick(ctx, b, w, h) {
 export function ball(ctx, cx, cy, rx, ry, color) {
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = Math.max(rx, ry) * 0.6; ctx.shadowOffsetY = Math.max(rx, ry) * 0.25;
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = sb(Math.max(rx, ry) * 0.6); ctx.shadowOffsetY = Math.max(rx, ry) * 0.25;
   ctx.scale(rx, ry);
   const g = ctx.createRadialGradient(-0.35, -0.4, 0.05, -0.1, -0.1, 1.15);
   g.addColorStop(0, '#ffffff'); g.addColorStop(0.25, mix(color, 0.45)); g.addColorStop(0.65, color); g.addColorStop(1, mix(color, -0.55));
@@ -84,7 +88,7 @@ export function ball(ctx, cx, cy, rx, ry, color) {
 // brushed-metal bumper with end caps
 export function paddle(ctx, x, y, w, h, color) {
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = h * 0.7; ctx.shadowOffsetY = h * 0.3;
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = sb(h * 0.7); ctx.shadowOffsetY = h * 0.3;
   const g = ctx.createLinearGradient(0, y, 0, y + h);
   g.addColorStop(0, mix(color, 0.6)); g.addColorStop(0.45, color); g.addColorStop(0.55, mix(color, -0.25)); g.addColorStop(1, mix(color, -0.55));
   ctx.fillStyle = g; round(ctx, x, y, w, h, h / 2); ctx.fill();
@@ -101,8 +105,8 @@ export function paddle(ctx, x, y, w, h, color) {
 // gel capsule: glassy body in the power-up colour (bad ones are dark with a glowing rim)
 export function capsule(ctx, x, y, w, h, color, bad) {
   ctx.save();
-  if (bad) { ctx.shadowColor = color; ctx.shadowBlur = h * 0.6; }
-  else { ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = h * 0.4; ctx.shadowOffsetY = h * 0.15; }
+  if (bad) { ctx.shadowColor = color; ctx.shadowBlur = sb(h * 0.6); }
+  else { ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = sb(h * 0.4); ctx.shadowOffsetY = h * 0.15; }
   const g = ctx.createLinearGradient(0, y, 0, y + h);
   if (bad) { g.addColorStop(0, '#3a1a22'); g.addColorStop(1, '#14070b'); }
   else { g.addColorStop(0, mix(color, 0.45)); g.addColorStop(0.5, color); g.addColorStop(1, mix(color, -0.45)); }
@@ -173,7 +177,7 @@ export function star(ctx, x, y, size, layer, color, alpha) {
 // dark rounded board panel with a lit rim
 export function panel(ctx, x, y, w, h, r) {
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = r * 1.2; ctx.shadowOffsetY = r * 0.4;
+  ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = sb(r * 1.2); ctx.shadowOffsetY = r * 0.4;
   const g = ctx.createLinearGradient(0, y, 0, y + h);
   g.addColorStop(0, '#26264a'); g.addColorStop(1, '#14142a');
   ctx.fillStyle = g; round(ctx, x, y, w, h, r); ctx.fill();

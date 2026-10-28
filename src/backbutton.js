@@ -7,7 +7,7 @@ export function installBackButton({ pause, resume, isPlaying, menuUrl = './' }) 
   installSettingsButton({ pause, resume, isPlaying });
   const style = document.createElement('style');
   style.textContent = `
-    .bb-btn { position: fixed; top: 4px; left: 4px; width: 40px; height: 40px; padding: 0; z-index: 10; cursor: pointer;
+    .bb-btn { position: fixed; top: var(--btn-top, 4px); left: var(--btn-left, 4px); width: 40px; height: 40px; padding: 0; z-index: 10; cursor: pointer;
       background: rgba(30, 30, 56, 0.85); border: 2px solid #34345a; border-bottom-color: #05050f; border-right-color: #05050f; color: #ddd; }
     .bb-btn:hover, .bb-btn:focus-visible { background: #34345a; outline: none; }
     .bb-btn svg { display: block; margin: auto; shape-rendering: crispEdges; fill: currentColor; }

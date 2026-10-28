@@ -182,7 +182,7 @@ function layout() {
   W = window.innerWidth;
   H = window.innerHeight;
   // back the canvas with real device pixels so the smooth hi-bit sprites stay sharp on retina screens; drawing stays in CSS pixels
-  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const dpr = graphics.dpr();
   canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -276,6 +276,7 @@ function makeStars() {
 }
 
 function drawBackground() {
+  if (graphics.lite) return; // limited animations: a plain backdrop
   // faint diagonal candy stripes scrolling slowly
   const gap = 70 * scale, off = (bgT * 0.25 * scale) % (gap * COLORS.length);
   ctx.lineWidth = gap * 0.5;
@@ -477,7 +478,7 @@ function explode(b, big) {
   shake = Math.max(shake, big ? 7 : 3.5);
   const cx = b.x + BW / 2, cy = b.y + BH / 2;
   debris.push({ flash: true, x: cx, y: cy, life: 12, max: 12, size: (big ? 1.4 : 0.9) * BH });
-  const n = big ? 14 : 6;
+  const n = (big ? 14 : 6) >> (graphics.lite ? 1 : 0);
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2, v = (1 + Math.random() * 3) * scale;
     debris.push({
@@ -515,7 +516,7 @@ function updateMissiles() {
 function emitFlames(ball, x0, y0) {
   const dist = Math.hypot(ball.x - x0, ball.y - y0);
   const n = Math.max(2, Math.ceil(dist / (ball.r * 0.7))); // fill the gap a fast ball covers in one frame
-  for (let i = 1; i <= n && sparks.length < 500; i++) {
+  for (let i = 1; i <= n && sparks.length < 500; i += graphics.lite ? 2 : 1) {
     const t = i / n, life = 18 + Math.random() * 18;
     sparks.push({
       x: x0 + (ball.x - x0) * t + (Math.random() - 0.5) * ball.r * 0.8,
@@ -846,7 +847,7 @@ function drawToughBrick(b, px) {
 
 function draw() {
   ctx.save();
-  if (shake > 0.3) ctx.translate((Math.random() - 0.5) * 2 * shake * scale, (Math.random() - 0.5) * 2 * shake * scale);
+  if (shake > 0.3 && !graphics.lite) ctx.translate((Math.random() - 0.5) * 2 * shake * scale, (Math.random() - 0.5) * 2 * shake * scale);
   drawScene();
   ctx.restore();
 }
@@ -984,7 +985,7 @@ function loop(now) {
   accumulator += Math.min(100, now - lastFrame); // cap so a backgrounded tab doesn't fast-forward
   lastFrame = now;
   while (accumulator >= STEP_MS) { tick(); accumulator -= STEP_MS; }
-  draw();
+  if (!graphics.skipFrame()) draw();
   requestAnimationFrame(loop);
 }
 addEventListener('resize', layout);

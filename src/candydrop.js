@@ -4,6 +4,7 @@ import { installBackButton } from './backbutton.js';
 import { enableMobileFullscreen } from './fullscreen.js';
 import { registerServiceWorker } from './pwa.js';
 import { graphics } from './graphics.js';
+import { placeButtons } from './settingsbutton.js';
 import * as hi from './wall-hibit.js';
 
 enableMobileFullscreen();
@@ -59,7 +60,7 @@ function layout() {
   W = window.innerWidth;
   H = window.innerHeight;
   // back the canvas with real device pixels so the smooth hi-bit sprites stay sharp on retina screens; drawing stays in CSS pixels
-  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const dpr = graphics.dpr();
   canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -85,6 +86,8 @@ function layout() {
     L.nextPs = cell * 0.4;
     L.statsY = top;
   }
+  if (wide) placeButtons({ left: L.hold.x - 44, right: W - (L.next.x + L.next.w) - 44, top: gy }); // outside the hold and next boxes, level with their tops
+  else placeButtons({ left: gx - 44, right: W - (gx + cell * COLS) - 44, top: L.statsY - 4 }); // beside the score and lines
   holdRect = L.hold;
   makeStars();
 }
@@ -255,7 +258,7 @@ function popText(str, x, y, size, color, life = 55) { pops.push({ str, x, y, siz
 function burst(r, c, color) {
   const cx = gx + c * cell + cell / 2, cy = gy + r * cell + cell / 2;
   parts.push({ flash: true, x: cx, y: cy, life: 14, max: 14, size: cell });
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < (graphics.lite ? 1 : 3); i++) {
     const a = Math.random() * Math.PI * 2, v = (1 + Math.random() * 3.5) * scale;
     parts.push({
       x: cx + (Math.random() - 0.5) * cell * 0.6, y: cy + (Math.random() - 0.5) * cell * 0.6,
@@ -417,6 +420,7 @@ function makeStars() {
 }
 
 function drawBackground() {
+  if (graphics.lite) return; // limited animations: a plain backdrop
   const gap = 70 * scale, off = (bgT * 0.25 * scale) % (gap * COLORS.length);
   ctx.lineWidth = gap * 0.5;
   for (let i = -Math.ceil(H / gap) - 1; i < Math.ceil((W + H) / gap) + COLORS.length; i++) {
@@ -548,7 +552,7 @@ function drawFx() {
 
 function draw() {
   ctx.save();
-  if (shake > 0.3) ctx.translate((Math.random() - 0.5) * 2 * shake * scale, (Math.random() - 0.5) * 2 * shake * scale);
+  if (shake > 0.3 && !graphics.lite) ctx.translate((Math.random() - 0.5) * 2 * shake * scale, (Math.random() - 0.5) * 2 * shake * scale);
   ctx.clearRect(-20, -20, W + 40, H + 40);
   drawBackground();
   drawHud(); drawBoard(); drawFx();
@@ -580,7 +584,7 @@ function loop(now) {
   accumulator += Math.min(100, now - lastFrame);
   lastFrame = now;
   while (accumulator >= STEP_MS) { update(); accumulator -= STEP_MS; }
-  draw();
+  if (!graphics.skipFrame()) draw();
   requestAnimationFrame(loop);
 }
 layout();

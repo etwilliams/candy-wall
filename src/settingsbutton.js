@@ -1,3 +1,12 @@
+// Lets a game seat the back and settings buttons next to its score area instead of the window corners.
+// left / right are distances in px from the window's left and right edges, top from the top edge; each is kept at least 4px.
+export function placeButtons({ left = 4, right = 4, top = 4 }) {
+  const st = document.documentElement.style;
+  st.setProperty('--btn-left', Math.max(4, Math.round(left)) + 'px');
+  st.setProperty('--btn-right', Math.max(4, Math.round(right)) + 'px');
+  st.setProperty('--btn-top', Math.max(4, Math.round(top)) + 'px');
+}
+
 // A settings button (top right) that opens the arcade-wide Music / Sounds switches.
 // pause / resume / isPlaying let the game freeze itself while the dialog is open.
 import { sound } from './sound.js';
@@ -45,7 +54,7 @@ export const HIBIT_CSS = p => `
 export function installSettingsButton({ pause, resume, isPlaying }) {
   const style = document.createElement('style');
   style.textContent = `
-    .st-btn { position: fixed; top: 4px; right: 4px; width: 40px; height: 40px; padding: 0; z-index: 10; cursor: pointer;
+    .st-btn { position: fixed; top: var(--btn-top, 4px); right: var(--btn-right, 4px); width: 40px; height: 40px; padding: 0; z-index: 10; cursor: pointer;
       background: rgba(30, 30, 56, 0.85); border: 2px solid #34345a; border-bottom-color: #05050f; border-right-color: #05050f; color: #ddd; }
     .st-btn:hover, .st-btn:focus-visible { background: #34345a; outline: none; }
     .st-btn svg { display: block; margin: auto; shape-rendering: crispEdges; fill: currentColor; }
@@ -58,6 +67,9 @@ export function installSettingsButton({ pause, resume, isPlaying }) {
     .st-box .st-state { color: #6bd86b; }
     .st-box button[data-off] .st-state { color: #ff4d4d; }
     .st-box .st-gfx { color: #4dc3ff; }
+    .st-box .st-an { color: #6bd86b; }
+    .st-box .st-anim[data-lite] .st-an { color: #ffb84d; }
+    [data-anim=limited] .st-btn, [data-anim=limited] .bb-btn, [data-anim=limited] .st-box { backdrop-filter: none !important; }
     .st-box .st-close { justify-content: center; margin: 8px 0 0; background: #ff6bd1; color: #1b1b2f; border-color: #ff9be3; border-bottom-color: #8a2a6e; border-right-color: #8a2a6e; }
     .st-box .st-close:hover, .st-box .st-close:focus-visible { background: #ff8be0; }
   ` + HIBIT_CSS('st');
@@ -78,10 +90,11 @@ export function installSettingsButton({ pause, resume, isPlaying }) {
     <button type="button" class="st-music"><span>MUSIC</span><span class="st-state"></span></button>
     <button type="button" class="st-sounds"><span>SOUNDS</span><span class="st-state"></span></button>
     <button type="button" class="st-graphics"><span>GRAPHICS</span><span class="st-state st-gfx"></span></button>
+    <button type="button" class="st-anim"><span>ANIMATIONS</span><span class="st-state st-an"></span></button>
     <button type="button" class="st-close">CLOSE</button></div>`;
   document.body.append(btn, overlay);
 
-  const music = overlay.querySelector('.st-music'), sounds = overlay.querySelector('.st-sounds'), closeBtn = overlay.querySelector('.st-close'), gfx = overlay.querySelector('.st-graphics');
+  const music = overlay.querySelector('.st-music'), sounds = overlay.querySelector('.st-sounds'), closeBtn = overlay.querySelector('.st-close'), gfx = overlay.querySelector('.st-graphics'), anim = overlay.querySelector('.st-anim');
   let wasPlaying = false;
 
   function refresh() {
@@ -90,7 +103,11 @@ export function installSettingsButton({ pause, resume, isPlaying }) {
       el.querySelector('.st-state').textContent = off ? 'OFF' : 'ON';
     }
   }
-  function refreshGfx() { gfx.querySelector('.st-state').textContent = graphics.hibit ? 'HI-BIT' : '8-BIT'; }
+  function refreshGfx() {
+    gfx.querySelector('.st-state').textContent = graphics.hibit ? 'HI-BIT' : '8-BIT';
+    anim.toggleAttribute('data-lite', graphics.lite);
+    anim.querySelector('.st-state').textContent = graphics.lite ? 'LIMITED' : 'FULL';
+  }
   function open() {
     wasPlaying = isPlaying();
     if (wasPlaying) pause();
@@ -109,6 +126,7 @@ export function installSettingsButton({ pause, resume, isPlaying }) {
   music.addEventListener('click', () => { sound.toggleMusic(); refresh(); });
   sounds.addEventListener('click', () => { sound.toggleMute(); refresh(); sound.tick(); }); // the tick plays only when sounds are now on
   gfx.addEventListener('click', () => { graphics.toggle(); refreshGfx(); sound.tick(); });
+  anim.addEventListener('click', () => { graphics.toggleLite(); refreshGfx(); sound.tick(); });
   closeBtn.addEventListener('click', () => { sound.select(); close(); });
   overlay.addEventListener('pointerdown', e => { if (e.target === overlay) close(); });
 

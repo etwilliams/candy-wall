@@ -1,3 +1,5 @@
+import { graphics } from './graphics.js';
+
 // Glossy vector candies shared by Candy Pop and the launcher. `mask` names the shape.
 export const CANDIES = [
   { color: '#ff4d4d', mask: 'circle' },
@@ -89,7 +91,7 @@ function drawCandyHi(ctx, shape, cx, cy, size, color, { rows, stripe, spin = 0 }
   ctx.lineJoin = 'round';
   outline(ctx, shape, r);
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = r * 0.35; ctx.shadowOffsetY = r * 0.14;
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = graphics.lite ? 0 : r * 0.35; ctx.shadowOffsetY = r * 0.14;
   if (rows && ctx.createConicGradient) {
     const g = ctx.createConicGradient(spin, 0, 0);
     rows.forEach((col, i) => g.addColorStop(i / rows.length, col));

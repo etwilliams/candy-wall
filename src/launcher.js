@@ -25,14 +25,14 @@ const GAMES = [
 if (TOUCH) document.getElementById('hint').textContent = 'Tap a game to play';
 
 let sel = 0, hover = -1, bgT = 0, introT = 0, leaveT = 0;
-let stars = [], cards = [], panel = null, musicRow = null, soundRow = null, gfxRow = null, closeBtn = null;
+let stars = [], cards = [], panel = null, musicRow = null, soundRow = null, gfxRow = null, animRow = null, closeBtn = null;
 let settingsOpen = false, hoverCol = 0; // hoverCol: the grid column to return to when moving up from settings
 
 function layout() {
   W = window.innerWidth;
   H = window.innerHeight;
   // back the canvas with real device pixels so the smooth hi-bit sprites stay sharp on retina screens; drawing stays in CSS pixels
-  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const dpr = graphics.dpr();
   canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -76,6 +76,7 @@ canvas.addEventListener('pointerdown', e => {
     if (hit(musicRow, x, y)) sfx.toggleMusic();
     else if (hit(soundRow, x, y)) sfx.toggleMute();
     else if (hit(gfxRow, x, y)) graphics.toggle();
+    else if (hit(animRow, x, y)) graphics.toggleLite();
     else if (hit(closeBtn, x, y) || !hit(panel, x, y)) settingsOpen = false;
     return;
   }
@@ -173,6 +174,7 @@ function socket(x, y, w, h, alt) {
 }
 
 function drawBackground() {
+  if (graphics.lite) return; // limited animations: a plain backdrop
   const gap = 70 * scale, off = (bgT * 0.25 * scale) % (gap * COLORS.length);
   ctx.lineWidth = gap * 0.5;
   for (let i = -Math.ceil(H / gap) - 1; i < Math.ceil((W + H) / gap) + COLORS.length; i++) {
@@ -290,6 +292,16 @@ const NOTE = [
   '.##..##.',
   '........',
 ];
+const BOLT = [
+  '....##..',
+  '...##...',
+  '..###...',
+  '.######.',
+  '...###..',
+  '...##...',
+  '..##....',
+  '..#.....',
+];
 const GEM = [
   '..####..',
   '.#.##.#.',
@@ -328,6 +340,8 @@ function iconHi(kind, cx, cy, r, color, off) {
     ctx.beginPath(); ctx.moveTo(-0.9, -0.3); ctx.lineTo(-0.5, -0.3); ctx.lineTo(-0.05, -0.8); ctx.lineTo(-0.05, 0.8); ctx.lineTo(-0.5, 0.3); ctx.lineTo(-0.9, 0.3); ctx.closePath(); ctx.fill();
     ctx.lineWidth = 0.13;
     for (const rr of [0.4, 0.75]) { ctx.beginPath(); ctx.arc(-0.05, 0, rr, -0.8, 0.8); ctx.stroke(); }
+  } else if (kind === 'bolt') {
+    ctx.beginPath(); ctx.moveTo(0.2, -0.95); ctx.lineTo(-0.6, 0.15); ctx.lineTo(-0.05, 0.15); ctx.lineTo(-0.25, 0.95); ctx.lineTo(0.6, -0.2); ctx.lineTo(0.05, -0.2); ctx.closePath(); ctx.fill();
   } else if (kind === 'gem') {
     ctx.beginPath(); ctx.moveTo(-0.5, -0.8); ctx.lineTo(0.5, -0.8); ctx.lineTo(0.95, -0.2); ctx.lineTo(0, 0.95); ctx.lineTo(-0.95, -0.2); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 0.08;
@@ -343,11 +357,11 @@ function drawSprite(rows, x, y, px, color) {
   ctx.fillStyle = color;
   rows.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === '#') ctx.fillRect(x + c * px, y + r * px, px, px); }));
 }
-const KIND = new Map([[NOTE, 'note'], [SPEAKER, 'speaker'], [GEM, 'gem']]);
+const KIND = new Map([[NOTE, 'note'], [SPEAKER, 'speaker'], [GEM, 'gem'], [BOLT, 'bolt']]);
 function drawSettings() {
-  if (!settingsOpen) { panel = musicRow = soundRow = gfxRow = closeBtn = null; return; }
+  if (!settingsOpen) { panel = musicRow = soundRow = gfxRow = animRow = closeBtn = null; return; }
   ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(0, 0, W, H);
-  const pw = Math.round(Math.min(W * 0.9, 420)), ph = Math.round(Math.min(H * 0.8, 380));
+  const pw = Math.round(Math.min(W * 0.9, 420)), ph = Math.round(Math.min(H * 0.85, 460));
   const px = Math.max(2, Math.round(pw / 90));
   panel = { x: Math.round(W / 2 - pw / 2), y: Math.round(H / 2 - ph / 2), w: pw, h: ph };
   if (graphics.hibit) hi.panel(ctx, panel.x, panel.y, pw, ph, ph * 0.05);
@@ -357,9 +371,9 @@ function drawSettings() {
   }
   const fs = Math.max(10, Math.min(20, pw * 0.05));
   ctx.textBaseline = 'middle';
-  text('SETTINGS', W / 2, panel.y + ph * 0.12, fs * 1.2, '#ffd24d');
-  const rh = Math.round(ph * 0.15), rx = panel.x + Math.round(pw * 0.06), rw = pw - Math.round(pw * 0.12);
-  const row = (label, off, y, icon, value) => {
+  text('SETTINGS', W / 2, panel.y + ph * 0.1, fs * 1.2, '#ffd24d');
+  const rh = Math.round(ph * 0.12), rx = panel.x + Math.round(pw * 0.06), rw = pw - Math.round(pw * 0.12);
+  const row = (label, off, y, icon, value, valueColor = '#4dc3ff') => {
     const nx = rx + Math.round(rh * 0.3), ny = Math.round(y + rh / 2 - px * 4);
     if (graphics.hibit) {
       const rg = ctx.createLinearGradient(0, y, 0, y + rh);
@@ -375,14 +389,15 @@ function drawSettings() {
       ctx.fillStyle = '#ff4d4d'; ctx.fillRect(nx + i * px, ny + (7 - i) * px, px, px);
     }
     text(label, nx + px * 10, y + rh / 2, fs, '#fff', 'left');
-    text(value || (off ? 'OFF' : 'ON'), rx + rw - rh * 0.3, y + rh / 2, fs, value ? '#4dc3ff' : off ? '#ff4d4d' : '#6bd86b', 'right');
+    text(value || (off ? 'OFF' : 'ON'), rx + rw - rh * 0.3, y + rh / 2, fs, value ? valueColor : off ? '#ff4d4d' : '#6bd86b', 'right');
     return { x: rx, y, w: rw, h: rh };
   };
-  musicRow = row('MUSIC', sfx.musicOff, Math.round(panel.y + ph * 0.26), NOTE);
-  soundRow = row('SOUNDS', sfx.muted, Math.round(panel.y + ph * 0.26 + rh * 1.2), SPEAKER);
-  gfxRow = row('GRAPHICS', false, Math.round(panel.y + ph * 0.26 + rh * 2.4), GEM, graphics.hibit ? 'HI-BIT' : '8-BIT');
-  const bh = Math.round(ph * 0.14), bw = Math.round(pw * 0.4);
-  closeBtn = { x: Math.round(W / 2 - bw / 2), y: Math.round(panel.y + ph * 0.8), w: bw, h: bh };
+  musicRow = row('MUSIC', sfx.musicOff, Math.round(panel.y + ph * 0.24), NOTE);
+  soundRow = row('SOUNDS', sfx.muted, Math.round(panel.y + ph * 0.24 + rh * 1.2), SPEAKER);
+  gfxRow = row('GRAPHICS', false, Math.round(panel.y + ph * 0.24 + rh * 2.4), GEM, graphics.hibit ? 'HI-BIT' : '8-BIT');
+  animRow = row('ANIMATIONS', false, Math.round(panel.y + ph * 0.24 + rh * 3.6), BOLT, graphics.lite ? 'LIMITED' : 'FULL', graphics.lite ? '#ffb84d' : '#6bd86b');
+  const bh = Math.round(ph * 0.11), bw = Math.round(pw * 0.4);
+  closeBtn = { x: Math.round(W / 2 - bw / 2), y: Math.round(panel.y + ph * 0.84), w: bw, h: bh };
   if (graphics.hibit) {
     const cg = ctx.createLinearGradient(0, closeBtn.y, 0, closeBtn.y + bh);
     cg.addColorStop(0, '#ff9be3'); cg.addColorStop(1, '#ff6bd1');
@@ -400,16 +415,16 @@ function drawTitle() {
   const DROP = 45, STAGGER = 5;
   [...title].forEach((ch, i) => {
     if (ch === ' ') return;
-    const t = Math.max(0, Math.min(1, (introT - i * STAGGER) / DROP));
+    const t = graphics.lite ? 1 : Math.max(0, Math.min(1, (introT - i * STAGGER) / DROP)); // limited animations: no drop-in
     if (t === 0) return;
     let y = rest - (1 - easeOutBounce(t)) * (rest + size);
-    if (t === 1) y += Math.sin(introT * 0.07 + i * 0.7) * size * 0.07;
-    const color = COLORS[(i + (t === 1 ? Math.floor(introT / 18) : 0)) % COLORS.length];
+    if (t === 1 && !graphics.lite) y += Math.sin(introT * 0.07 + i * 0.7) * size * 0.07;
+    const color = COLORS[(i + (t === 1 && !graphics.lite ? Math.floor(introT / 18) : 0)) % COLORS.length];
     text(ch, x0 + i * size, y + size * 0.08, size, 'rgba(0,0,0,0.5)');
     text(ch, x0 + i * size, y, size, color);
   });
   ctx.textBaseline = 'alphabetic';
-  ctx.globalAlpha = Math.max(0, Math.min(1, (introT - 80) / 30));
+  ctx.globalAlpha = graphics.lite ? 1 : Math.max(0, Math.min(1, (introT - 80) / 30));
   text(TOUCH ? 'Tap a game' : 'Pick a game', W / 2, rest + size * 0.95, Math.max(9, size * 0.28), '#ffb3e6');
   ctx.globalAlpha = 1;
 }
@@ -429,19 +444,19 @@ function drawSettingsTile(c, on) {
 
 function drawCard(i) {
   const c = cards[i], g = GAMES[i], on = i === sel;
-  const t = Math.max(0, Math.min(1, (introT - 30 - i * 12) / 30)); // cards bounce in one after the other
+  const t = graphics.lite ? 1 : Math.max(0, Math.min(1, (introT - 30 - i * 12) / 30)); // cards bounce in one after the other (not when animations are limited)
   if (t === 0) return;
-  const lift = (1 - easeOutBounce(t)) * H * 0.5 + (on ? -4 * scale + Math.sin(bgT * 0.12) * 3 * scale : 0);
+  const lift = graphics.lite ? 0 : (1 - easeOutBounce(t)) * H * 0.5 + (on ? -4 * scale + Math.sin(bgT * 0.12) * 3 * scale : 0);
   const px = Math.max(2, Math.round(c.w / 70));
   ctx.save();
   ctx.translate(0, Math.round(lift));
-  if (leaveT && on) { const k = leaveT / 24; ctx.translate(c.x + c.w / 2, c.y + c.h / 2); ctx.scale(1 + k * 0.15, 1 + k * 0.15); ctx.translate(-(c.x + c.w / 2), -(c.y + c.h / 2)); }
+  if (leaveT && on && !graphics.lite) { const k = leaveT / 24; ctx.translate(c.x + c.w / 2, c.y + c.h / 2); ctx.scale(1 + k * 0.15, 1 + k * 0.15); ctx.translate(-(c.x + c.w / 2), -(c.y + c.h / 2)); }
   if (graphics.hibit) {
     const cr = Math.min(c.w, c.h) * 0.07;
     hi.panel(ctx, c.x, c.y, c.w, c.h, cr);
     if (on) { // glowing rainbow selection ring
       ctx.save();
-      ctx.shadowColor = COLORS[Math.floor(bgT / 10) % COLORS.length]; ctx.shadowBlur = px * 6;
+      ctx.shadowColor = COLORS[Math.floor(bgT / 10) % COLORS.length]; ctx.shadowBlur = graphics.lite ? 0 : px * 6;
       ctx.strokeStyle = ctx.shadowColor; ctx.lineWidth = px * 1.5;
       hi.roundedRect(ctx, c.x - px, c.y - px, c.w + px * 2, c.h + px * 2, cr + px); ctx.stroke();
       ctx.restore();
@@ -454,7 +469,8 @@ function drawCard(i) {
   if (i === SETTINGS) { drawSettingsTile(c, on); ctx.restore(); return; }
   const artH = c.h * 0.68, pad = c.w * 0.06;
   well(c.x + pad, c.y + pad, c.w - pad * 2, artH - pad);
-  g.art(c.x + pad, c.y + pad, c.w - pad * 2, artH - pad);
+  if (graphics.lite) { const t = bgT; bgT = 40; g.art(c.x + pad, c.y + pad, c.w - pad * 2, artH - pad); bgT = t; } // previews hold still
+  else g.art(c.x + pad, c.y + pad, c.w - pad * 2, artH - pad);
   text(g.name, c.x + c.w / 2, c.y + artH + (c.h - artH) * 0.45, Math.min(20, c.w * 0.075), '#fff');
   text(g.blurb, c.x + c.w / 2, c.y + artH + (c.h - artH) * 0.8, Math.min(10, c.w * 0.038), on ? '#ffd24d' : '#aaa');
   ctx.restore();
@@ -473,14 +489,14 @@ const STEP_MS = 1000 / 60;
 let lastFrame = 0, accumulator = 0;
 function update() {
   bgT++; introT++;
-  if (leaveT && ++leaveT > 24) location.href = GAMES[sel].href;
+  if (leaveT && ++leaveT > (graphics.lite ? 8 : 24)) location.href = GAMES[sel].href;
 }
 function loop(now) {
   if (!lastFrame) lastFrame = now;
   accumulator += Math.min(100, now - lastFrame);
   lastFrame = now;
   while (accumulator >= STEP_MS) { update(); accumulator -= STEP_MS; }
-  draw();
+  if (!graphics.skipFrame()) draw();
   requestAnimationFrame(loop);
 }
 layout();
