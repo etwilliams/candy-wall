@@ -1,6 +1,7 @@
 // Synthesized sound effects (Web Audio), so there are no audio files to load.
 let ac = null;
-let muted = false;
+let muted = false; // sound effects only: music notes pass music: true to tone()/noise() and ignore it
+try { muted = localStorage.getItem('arcade-sounds') === 'off'; } catch { /* storage unavailable: sounds stay on */ }
 let lastBrick = 0;
 let lastPop = 0;
 
@@ -15,9 +16,9 @@ export function ctx() {
 }
 
 // one oscillator with a quick attack and exponential decay; freq can sweep from -> to
-export function tone({ type = 'sine', from, to = from, dur = 0.12, vol = 0.2, delay = 0, filter }) {
+export function tone({ type = 'sine', from, to = from, dur = 0.12, vol = 0.2, delay = 0, filter, music = false }) {
   const a = ctx();
-  if (!a || muted) return;
+  if (!a || (muted && !music)) return;
   const t = a.currentTime + delay;
   const osc = a.createOscillator();
   const gain = a.createGain();
@@ -42,9 +43,9 @@ export function tone({ type = 'sine', from, to = from, dur = 0.12, vol = 0.2, de
 }
 
 // lo-fi noise: each random sample is held for `hold` samples, which gives the crunchy 8-bit rumble
-export function noise({ dur = 0.3, vol = 0.25, hold = 12, filter, delay = 0 }) {
+export function noise({ dur = 0.3, vol = 0.25, hold = 12, filter, delay = 0, music = false }) {
   const a = ctx();
-  if (!a || muted) return;
+  if (!a || (muted && !music)) return;
   const len = Math.floor(a.sampleRate * dur);
   const buf = a.createBuffer(1, len, a.sampleRate);
   const data = buf.getChannelData(0);
@@ -80,20 +81,22 @@ const LEAD = [ // two bars of sixteenth steps; null is a rest
 ];
 const BASS_ROOTS = [45, 45, 41, 43]; // one per half bar: A, A, F, G
 let musicTimer = null, musicNext = 0, musicStep = 0;
-let musicOff = false; // the music has its own mute; sound effects are unaffected
+// the music has its own switch, shared by the launcher and every game (set from the launcher's settings); sound effects are unaffected
+let musicOff = false;
+try { musicOff = (localStorage.getItem('arcade-music') ?? localStorage.getItem('launcher-music')) === 'off'; } catch { /* storage unavailable: music stays on */ }
 
 function playStep(step, at) {
   if (musicOff) return;
   const a = ctx();
   const d = Math.max(0, at - a.currentTime);
   const s = step % LEAD.length;
-  if (LEAD[s] != null) tone({ type: 'square', from: midi(LEAD[s]), dur: STEP * 1.6, vol: 0.035, delay: d });
+  if (LEAD[s] != null) tone({ type: 'square', from: midi(LEAD[s]), dur: STEP * 1.6, vol: 0.035, delay: d, music: true });
   if (s % 2 === 0) { // bouncing bass: root, octave, root, octave...
     const root = BASS_ROOTS[Math.floor(s / 8)];
-    tone({ type: 'triangle', from: midi(s % 4 === 0 ? root : root + 12), dur: STEP * 1.8, vol: 0.11, delay: d });
+    tone({ type: 'triangle', from: midi(s % 4 === 0 ? root : root + 12), dur: STEP * 1.8, vol: 0.11, delay: d, music: true });
   }
-  if (s % 4 === 0) tone({ type: 'sine', from: 130, to: 45, dur: 0.1, vol: 0.2, delay: d }); // kick
-  if (s % 4 === 2) noise({ dur: 0.04, vol: 0.03, hold: 1, delay: d }); // hat
+  if (s % 4 === 0) tone({ type: 'sine', from: 130, to: 45, dur: 0.1, vol: 0.2, delay: d, music: true }); // kick
+  if (s % 4 === 2) noise({ dur: 0.04, vol: 0.03, hold: 1, delay: d, music: true }); // hat
 }
 
 function schedule() {
@@ -107,7 +110,11 @@ function schedule() {
 
 export const sound = {
   get musicOff() { return musicOff; },
-  toggleMusic() { musicOff = !musicOff; return musicOff; },
+  toggleMusic() {
+    musicOff = !musicOff;
+    try { localStorage.setItem('arcade-music', musicOff ? 'off' : 'on'); } catch { /* storage unavailable */ }
+    return musicOff;
+  },
 
   // starts or pauses the loop; safe to call every frame
   setMusic(on) {
@@ -153,7 +160,11 @@ export const sound = {
 
   // call from a user gesture so the browser allows audio
   unlock() { ctx(); },
-  toggleMute() { muted = !muted; return muted; },
+  toggleMute() {
+    muted = !muted;
+    try { localStorage.setItem('arcade-sounds', muted ? 'off' : 'on'); } catch { /* storage unavailable */ }
+    return muted;
+  },
   get muted() { return muted; },
 
   // a brick landing: a soft bubbly pop, pitched randomly so a cascade sounds lively

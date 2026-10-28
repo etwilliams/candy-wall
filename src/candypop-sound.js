@@ -13,19 +13,18 @@ const LEAD = [ // four chords of eight sixteenth steps; null is a rest
 ];
 const BASS_ROOTS = [50, 45, 47, 43]; // one per eight steps: D, A, B, G
 let musicTimer = null, musicNext = 0, musicStep = 0;
-let musicOff = false; // the music has its own mute; sound effects are unaffected
 
 function playStep(step, at) {
-  if (musicOff) return;
+  if (sound.musicOff) return;
   const d = Math.max(0, at - ctx().currentTime);
   const s = step % LEAD.length;
-  if (LEAD[s] != null) tone({ type: 'square', from: midi(LEAD[s]), dur: STEP * 1.5, vol: 0.03, delay: d });
+  if (LEAD[s] != null) tone({ type: 'square', from: midi(LEAD[s]), dur: STEP * 1.5, vol: 0.03, delay: d, music: true });
   if (s % 2 === 0) { // bouncing bass
     const root = BASS_ROOTS[Math.floor(s / 8)];
-    tone({ type: 'triangle', from: midi(s % 4 === 0 ? root : root + 12), dur: STEP * 1.8, vol: 0.1, delay: d });
+    tone({ type: 'triangle', from: midi(s % 4 === 0 ? root : root + 12), dur: STEP * 1.8, vol: 0.1, delay: d, music: true });
   }
-  if (s % 8 === 0 || s % 8 === 5) tone({ type: 'sine', from: 120, to: 45, dur: 0.1, vol: 0.14, delay: d }); // kick
-  if (s % 4 === 2) noise({ dur: 0.04, vol: 0.025, hold: 1, delay: d }); // hat
+  if (s % 8 === 0 || s % 8 === 5) tone({ type: 'sine', from: 120, to: 45, dur: 0.1, vol: 0.14, delay: d, music: true }); // kick
+  if (s % 4 === 2) noise({ dur: 0.04, vol: 0.025, hold: 1, delay: d, music: true }); // hat
 }
 
 function schedule() {
@@ -41,9 +40,6 @@ export const sfx = {
   unlock: sound.unlock,
   toggleMute: sound.toggleMute,
   get muted() { return sound.muted; },
-
-  get musicOff() { return musicOff; },
-  toggleMusic() { musicOff = !musicOff; return musicOff; },
 
   // starts or pauses the loop; safe to call every frame
   setMusic(on) {

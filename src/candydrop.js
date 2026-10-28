@@ -3,6 +3,8 @@ import { sfx } from './candydrop-sound.js';
 import { installBackButton } from './backbutton.js';
 import { enableMobileFullscreen } from './fullscreen.js';
 import { registerServiceWorker } from './pwa.js';
+import { graphics } from './graphics.js';
+import * as hi from './wall-hibit.js';
 
 enableMobileFullscreen();
 registerServiceWorker();
@@ -45,19 +47,22 @@ let parts = [], pops = [];
 let shake = 0, bgT = 0, overT = 0;
 let stars = [];
 let touch = null; // the finger steering the piece
-let musicBtn = { x: 0, y: 0, s: 0 }; // hit box of the music button, set when drawn
 let holdRect = { x: 0, y: 0, w: 0, h: 0 };
 // layout, set in layout()
 let cell, gx, gy, wide, L;
 
-try { sfx.toggleMusic(); if (localStorage.getItem('candydrop-music') !== 'off') sfx.toggleMusic(); } catch { /* storage unavailable: music stays on */ }
 try { best = Number(localStorage.getItem('candydrop-best')) || 0; } catch { best = 0; }
 function saveBest() { try { localStorage.setItem('candydrop-best', String(best)); } catch { /* storage unavailable */ } }
 
 // --- layout: side panels on wide windows, a header with hold and next on narrow ones ---
 function layout() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  // back the canvas with real device pixels so the smooth hi-bit sprites stay sharp on retina screens; drawing stays in CSS pixels
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   scale = Math.min(W / 480, H / 800);
   const sideNeed = 4.6;
   const cellWide = Math.min((W - 24) / (COLS + 2 * sideNeed), (H - 40) / ROWS);
@@ -266,17 +271,12 @@ function pointerPos(e) {
   return [(e.clientX - rect.left) * (W / rect.width), (e.clientY - rect.top) * (H / rect.height)];
 }
 function inRect(x, y, r) { return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h; }
-function toggleMusic() {
-  const off = sfx.toggleMusic();
-  try { localStorage.setItem('candydrop-music', off ? 'off' : 'on'); } catch { /* storage unavailable */ }
-}
 function resume() { paused = false; sfx.setMusic(true); }
 function pause() { paused = true; keys = { left: false, right: false, down: false }; touch = null; sfx.setMusic(false); }
 
 canvas.addEventListener('pointerdown', e => {
   sfx.unlock();
   const [x, y] = pointerPos(e);
-  if (Math.abs(x - musicBtn.x) < musicBtn.s && Math.abs(y - musicBtn.y) < musicBtn.s) { toggleMusic(); return; }
   if (paused) { resume(); return; }
   if (state === 'over') { if (overT > 45) startGame(); return; }
   if (inRect(x, y, holdRect)) { holdPiece(); return; }
@@ -314,7 +314,6 @@ addEventListener('keydown', e => {
   const k = e.key;
   if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' '].includes(k)) e.preventDefault();
   if (k === 'm' || k === 'M') { sfx.toggleMute(); return; }
-  if (k === 'n' || k === 'N') { toggleMusic(); return; }
   if (state !== 'play') {
     if ((k === ' ' || k === 'Enter') && (state === 'over' && overT > 45)) startGame();
     return;
@@ -379,7 +378,7 @@ function update() {
 
 // --- drawing ---
 function text(str, x, y, size, color = '#fff', align = 'center') {
-  ctx.fillStyle = color; ctx.font = `${size}px "Press Start 2P", monospace`; ctx.textAlign = align;
+  ctx.fillStyle = color; ctx.font = graphics.font(size); ctx.textAlign = align;
   ctx.fillText(str, x, y);
 }
 function shade(hex, amt) { // amt > 0 mixes toward white, < 0 toward black
@@ -406,6 +405,7 @@ function pixelBox(x, y, w, h, color, px) {
 }
 function drawBlock(x, y, cs, color) {
   const gap = Math.max(1, Math.round(cs / 14));
+  if (graphics.hibit) { hi.brick(ctx, x + gap / 2, y + gap / 2, cs - gap, cs - gap, color); return; }
   pixelBox(x + gap / 2, y + gap / 2, cs - gap, cs - gap, color, Math.max(2, Math.round(cs / 9)));
 }
 
@@ -429,6 +429,7 @@ function drawBackground() {
     const speed = (st.layer + 1) * 0.12 * scale, size = Math.max(1, Math.round((st.layer + 1) * scale));
     const y = (st.y + bgT * speed) % H;
     ctx.globalAlpha = 0.25 + 0.2 * st.layer + 0.2 * Math.sin(bgT * 0.04 + st.phase);
+    if (graphics.hibit) { hi.star(ctx, st.x, y, size, st.layer, st.color, ctx.globalAlpha); continue; }
     ctx.fillStyle = st.color;
     ctx.fillRect(Math.round(st.x), Math.round(y), size, size);
   }
@@ -437,6 +438,7 @@ function drawBackground() {
 
 // a dark panel with a pixel border
 function panel(x, y, w, h, px) {
+  if (graphics.hibit) { hi.panel(ctx, x - px, y - px, w + 2 * px, h + 2 * px, cell * 0.35); return; }
   ctx.fillStyle = '#34345a'; ctx.fillRect(x - px, y - px, w + 2 * px, h + 2 * px);
   ctx.fillStyle = '#05050f'; ctx.fillRect(x - px, y + h, w + 2 * px, px); ctx.fillRect(x + w, y - px, px, h + 2 * px);
   ctx.fillStyle = '#1e1e38'; ctx.fillRect(x, y, w, h);
@@ -449,11 +451,12 @@ function drawBoard() {
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
     const x = gx + c * cell, y = gy + r * cell, g = board[r][c];
     if (!g) {
-      ctx.fillStyle = '#15152b';
-      ctx.fillRect(Math.round(x + gap / 2), Math.round(y + gap / 2), cell - gap, cell - gap);
+      if (graphics.hibit) hi.socket(ctx, x + gap / 2, y + gap / 2, cell - gap, cell - gap);
+      else { ctx.fillStyle = '#15152b'; ctx.fillRect(Math.round(x + gap / 2), Math.round(y + gap / 2), cell - gap, cell - gap); }
     } else if (clearing && clearing.rows.includes(r)) {
-      ctx.fillStyle = Math.floor(clearing.t / 3) % 2 ? g.color : '#fff'; // blink white before the line goes
-      ctx.fillRect(Math.round(x + gap / 2), Math.round(y + gap / 2), cell - gap, cell - gap);
+      const blink = Math.floor(clearing.t / 3) % 2 ? g.color : '#ffffff'; // blink white before the line goes
+      if (graphics.hibit) hi.brick(ctx, x + gap / 2, y + gap / 2, cell - gap, cell - gap, blink);
+      else { ctx.fillStyle = blink; ctx.fillRect(Math.round(x + gap / 2), Math.round(y + gap / 2), cell - gap, cell - gap); }
     } else {
       const s = 1 + g.pop * 0.18, cs = cell * s, o = (cell - cs) / 2;
       drawBlock(x + o, y + o, cs, g.color);
@@ -485,28 +488,6 @@ function drawBox(r, label) {
   text(label, r.x + r.w / 2, r.y + Math.max(11, cell * 0.5), Math.max(7, Math.round(cell * 0.3)), '#aaa');
 }
 
-const NOTE = [
-  '...#####',
-  '...#...#',
-  '...#...#',
-  '...#...#',
-  '.###.###',
-  '####.###',
-  '.##..##.',
-  '........',
-];
-function drawMusicButton(cx, cy, px) {
-  const s = px * 8, x = Math.round(cx - s / 2), y = Math.round(cy - s / 2);
-  musicBtn = { x: cx, y: cy, s: Math.max(s, 26) * 0.9 };
-  const off = sfx.musicOff;
-  ctx.fillStyle = off ? '#666' : '#ff6bd1';
-  NOTE.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === '#') ctx.fillRect(x + c * px, y + r * px, px, px); }));
-  if (off) for (let i = 0; i < 8; i++) {
-    ctx.fillStyle = '#1b1b2f'; ctx.fillRect(x + i * px - px, y + (7 - i) * px, px, px);
-    ctx.fillStyle = '#ff4d4d'; ctx.fillRect(x + i * px, y + (7 - i) * px, px, px);
-  }
-}
-
 function drawHud() {
   const sz = Math.max(8, Math.round(cell * 0.3));
   drawBox(L.hold, 'HOLD');
@@ -523,19 +504,23 @@ function drawHud() {
     text('LEVEL', x, y + big * 3.2, sz, '#aaa', 'left'); text(String(level), x, y + big * 4.5, big, '#ffd24d', 'left');
     text('LINES', x, y + big * 6.4, sz, '#aaa', 'left'); text(String(lines), x, y + big * 7.7, big, '#6bd86b', 'left');
     text('BEST', x, y + big * 9.6, sz, '#aaa', 'left'); text(String(best), x, y + big * 10.9, big * 0.8, '#ff6bd1', 'left');
-    drawMusicButton(W - 34, 34, 4);
   } else {
     const y = L.statsY + cell * 0.55, big = Math.min(22, cell * 0.6), px = gx + cell * COLS;
     const sx = Math.max(gx, 52); // clear of the back button
     text('SCORE', sx, y, sz, '#aaa', 'left'); text(String(shownScore), sx, y + big * 1.2, big, '#fff', 'left');
     text('LEVEL', gx + cell * 5.6, y, sz, '#aaa', 'center'); text(String(level), gx + cell * 5.6, y + big * 1.2, big, '#ffd24d', 'center');
     text('LINES', px, y, sz, '#aaa', 'right'); text(String(lines), px, y + big * 1.2, big, '#6bd86b', 'right');
-    drawMusicButton(gx + cell * 3.9, L.hold.y + L.hold.h / 2, Math.max(2, Math.round(cell / 9)));
   }
 }
 
 function drawFx() {
   for (const d of parts) {
+    if (graphics.hibit) {
+      const f = d.life / d.max;
+      if (d.flash) hi.blast(ctx, d.x, d.y, d.size * (1 + (1 - f) * 0.4) * 0.8, f, true, '#ffffff');
+      else hi.blast(ctx, d.x, d.y, d.size * 0.9, Math.min(1, d.life / 20), false, d.color);
+      continue;
+    }
     if (d.flash) {
       ctx.globalAlpha = d.life / d.max;
       ctx.fillStyle = '#fff';

@@ -1,8 +1,10 @@
-// A small back-to-menu button (top left) that asks for confirmation before leaving.
+// A small back-to-menu button (top left) that asks for confirmation before leaving; also installs the settings button (top right).
 // pause / resume / isPlaying let the game freeze itself while the dialog is open.
 import { sound } from './sound.js';
+import { installSettingsButton, HIBIT_CSS } from './settingsbutton.js';
 
 export function installBackButton({ pause, resume, isPlaying, menuUrl = './' }) {
+  installSettingsButton({ pause, resume, isPlaying });
   const style = document.createElement('style');
   style.textContent = `
     .bb-btn { position: fixed; top: 4px; left: 4px; width: 40px; height: 40px; padding: 0; z-index: 10; cursor: pointer;
@@ -19,7 +21,7 @@ export function installBackButton({ pause, resume, isPlaying, menuUrl = './' }) 
     .bb-row button:hover, .bb-row button:focus-visible { background: #4a4a7a; outline: 2px solid #fff; outline-offset: 2px; }
     .bb-row .bb-quit { background: #a02a2a; border-color: #d24d4d; border-bottom-color: #4a0f0f; border-right-color: #4a0f0f; }
     .bb-row .bb-quit:hover, .bb-row .bb-quit:focus-visible { background: #c23a3a; }
-  `;
+  ` + HIBIT_CSS('bb');
   document.head.appendChild(style);
 
   const btn = document.createElement('button');
@@ -27,7 +29,8 @@ export function installBackButton({ pause, resume, isPlaying, menuUrl = './' }) 
   btn.type = 'button';
   btn.setAttribute('aria-label', 'Back to menu');
   // a pixel-art left arrow
-  btn.innerHTML = '<svg width="22" height="22" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM2 1h1v1H2zM1 2h1v1H1zM0 3h7v1H0zM1 4h1v1H1zM2 5h1v1H2zM3 6h1v1H3z"/></svg>';
+  btn.innerHTML = '<svg class="gfx-px" width="22" height="22" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM2 1h1v1H2zM1 2h1v1H1zM0 3h7v1H0zM1 4h1v1H1zM2 5h1v1H2zM3 6h1v1H3z"/></svg>'
+    + '<svg class="gfx-hi" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 5l-7 7 7 7"/></svg>';
 
   const overlay = document.createElement('div');
   overlay.className = 'bb-overlay';
