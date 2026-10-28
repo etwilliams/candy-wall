@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Candy Pop</title>
+<meta name="theme-color" content="#1b1b2f">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Candy Arcade">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #111; color: #eee; font-family: 'Press Start 2P', monospace; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  canvas { display: block; -webkit-tap-highlight-color: transparent; user-select: none; background: #1b1b2f; touch-action: none; }
+  p { position: fixed; bottom: 4px; left: 0; right: 0; text-align: center; margin: 0; font-size: 8px; line-height: 1.6; padding: 0 12px; box-sizing: border-box; color: #888; pointer-events: none; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<p id="hint">Swap neighbouring candies to match 3 or more &nbsp;·&nbsp; Match 4 or 5 for power-ups &nbsp;·&nbsp; Hit the goal before the moves run out &nbsp;·&nbsp; H: hint &nbsp;·&nbsp; Esc: pause &nbsp;·&nbsp; N: music on/off &nbsp;·&nbsp; M: mute all</p>
+<script type="module" src="/src/candypop.js"></script>
+</body>
+</html>

@@ -162,12 +162,14 @@ const paddle = { w: PADDLE_W, h: PADDLE_H, x: 0, y: 0, speed: 7, punch: 0 };
 let balls, drops, missiles, sparks, debris, stuck;           // stuck: the single ball is resting on the paddle
 let bigT, wideT, narrowT, missileT;          // remaining frames of timed effects
 
-let bricks, lives, score, level, state; // state: 'title' | 'play' | 'lost'
+let bricks, lives, score, level, state; // state: 'play' | 'lost'
 let keys = {};
 let paused = false;
+let musicBtn = { x: 0, y: 0, s: 0 }; // hit box of the music button, in canvas pixels; set when drawn
+try { sound.toggleMusic(); if (localStorage.getItem('wall-music') !== 'off') sound.toggleMusic(); } catch { /* storage unavailable: music stays on */ }
 let slowT = 0, fastT = 0, stickyT = 0, shield = false, speedMult = 1; // more effects: ball speed, sticky paddle, bottom shield
 let shake = 0; // screen shake strength in design pixels; decays every frame
-let bgT = 0, titleT = 0, stars = []; // animation clocks (frames) and the background starfield
+let bgT = 0, stars = []; // animation clocks (frames) and the background starfield
 const SLIDE_FRAMES = 110, BANNER_FRAMES = 150;
 let slideT = 1, bannerT = 0; // slideT: 0..1 progress of the bricks sliding in; bannerT: frames left on the level banner
 
@@ -318,9 +320,22 @@ function releaseBall(b, boosted) {
   if (boosted) { b.boost = BOOST; b.pierce = 1; b.charged = true; }
 }
 
+function toggleMusic() {
+  const off = sound.toggleMusic();
+  try { localStorage.setItem('wall-music', off ? 'off' : 'on'); } catch { /* storage unavailable */ }
+}
+// true (and toggles the music) when a press at these client coordinates lands on the music button
+function pressMusic(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const x = (clientX - rect.left) * (W / rect.width), y = (clientY - rect.top) * (H / rect.height);
+  if (Math.abs(x - musicBtn.x) > musicBtn.s || Math.abs(y - musicBtn.y) > musicBtn.s) return false;
+  sound.unlock();
+  toggleMusic();
+  return true;
+}
+
 function action() {
   sound.unlock();
-  if (state === 'title') { state = 'play'; return; }
   if (paused) { paused = false; return; }
   if (state === 'play' && !stuck) {
     paddle.punch = 1;
@@ -363,12 +378,13 @@ addEventListener('keydown', e => {
   keys[e.key] = true;
   sound.unlock();
   if (e.key === 'm' || e.key === 'M') sound.toggleMute();
+  if (e.key === 'n' || e.key === 'N') toggleMusic();
   if (e.key === 'Escape' && state === 'play' && !e.repeat) { paused = !paused; return; }
   if (e.key === ' ') { e.preventDefault(); if (!e.repeat) action(); }
 });
 addEventListener('keyup', e => keys[e.key] = false);
 canvas.addEventListener('mousemove', e => movePaddleTo(e.clientX));
-canvas.addEventListener('mousedown', action);
+canvas.addEventListener('mousedown', e => { if (!pressMusic(e.clientX, e.clientY)) action(); });
 
 // Touch: drag left/right to slide the paddle (relative, so the finger never hides it), tap to launch / pop the paddle.
 // A second finger tapping while the first is dragging also fires, so you can boost without lifting off.
@@ -379,6 +395,7 @@ canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   sound.unlock();
   for (const t of e.changedTouches) {
+    if (pressMusic(t.clientX, t.clientY)) continue;
     if (!drag) drag = { id: t.identifier, lastX: t.clientX, startX: t.clientX, startT: performance.now(), moved: false };
     else action(); // extra finger = tap
   }
@@ -725,32 +742,6 @@ function drawCapsule(d) {
   }
 }
 
-function drawTitle() {
-  ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, W, H);
-  const title = 'CANDY WALL';
-  const size = Math.min(64, W * 0.8 / title.length); // the pixel font is 1em wide per letter
-  const x0 = W / 2 - (title.length * size) / 2 + size / 2;
-  ctx.textBaseline = 'middle';
-  const DROP = 45, STAGGER = 7; // frames for one letter to fall, and between letters
-  const landedAt = (title.length - 1) * STAGGER + DROP;
-  [...title].forEach((ch, i) => {
-    if (ch === ' ') return;
-    const t = Math.max(0, Math.min(1, (titleT - i * STAGGER) / DROP));
-    if (t === 0) return; // not dropped in yet
-    const x = x0 + i * size, rest = H / 2 - size;
-    let y = rest - (1 - easeOutBounce(t)) * (rest + size); // bounces in from above the screen
-    if (t === 1) y += Math.sin(titleT * 0.07 + i * 0.7) * size * 0.07; // then a gentle wobble
-    const color = COLORS[(i + (t === 1 ? Math.floor(titleT / 18) : 0)) % COLORS.length]; // and the colors ripple along
-    text(ch, x, y + size * 0.08, size, 'rgba(0,0,0,0.5)'); // drop shadow
-    text(ch, x, y, size, color);
-  });
-  ctx.textBaseline = 'alphabetic';
-  // tagline fades in once the letters have landed
-  ctx.globalAlpha = Math.max(0, Math.min(1, (titleT - landedAt) / 30));
-  text('its a wall of candy', W / 2, H / 2 - size * 0.15, size * 0.22, '#ffb3e6');
-  ctx.globalAlpha = 1;
-  if (titleT > landedAt && Math.floor(Date.now() / 500) % 2 === 0) text(START + ' to start', W / 2, H / 2 + size, Math.max(10, size * 0.28), '#ccc');
-}
 
 // --- 8-bit shapes: notched corners and a hard pixel bevel instead of anti-aliased curves ---
 function shade(hex, amt) { // amt > 0 mixes toward white, < 0 toward black
@@ -864,6 +855,18 @@ function draw() {
   ctx.restore();
 }
 
+// 8x8 pixel music note
+const NOTE = [
+  '...#####',
+  '...#...#',
+  '...#...#',
+  '...#...#',
+  '.###.###',
+  '####.###',
+  '.##..##.',
+  '........',
+];
+
 function drawScene() {
   ctx.clearRect(0, 0, W, H);
   drawBackground();
@@ -937,6 +940,17 @@ function drawScene() {
     else pixelDisc(lx, ly, lr, lr, 'rgba(201,205,224,0.3)', lpx, true);
   }
 
+  // music on/off, just left of the lives
+  const mpx = Math.max(2, Math.round(2.5 * scale)), ms = mpx * 8;
+  const mx = Math.round(W - 22 * scale - Math.max(3, lives) * 26 * scale - ms / 2 - 4), my = Math.round(24 * scale - ms / 2);
+  musicBtn = { x: mx + ms / 2, y: my + ms / 2, s: Math.max(ms, 24) * 0.9 };
+  ctx.fillStyle = sound.musicOff ? '#666' : '#ff6bd1';
+  NOTE.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === '#') ctx.fillRect(mx + c * mpx, my + r * mpx, mpx, mpx); }));
+  if (sound.musicOff) for (let i = 0; i < 8; i++) { // diagonal slash with a dark edge
+    ctx.fillStyle = '#1b1b2f'; ctx.fillRect(mx + i * mpx - mpx, my + (7 - i) * mpx, mpx, mpx);
+    ctx.fillStyle = '#ff4d4d'; ctx.fillRect(mx + i * mpx, my + (7 - i) * mpx, mpx, mpx);
+  }
+
   // active timed effects, just under the bricks
   const active = [];
   if (bigT > 0) active.push(['Big ball', bigT, '#6bd86b']);
@@ -968,8 +982,7 @@ function drawScene() {
     text('Paused', W / 2, H / 2 - 10, 32);
     text(TOUCH ? 'Tap to resume' : 'Press Esc or click to resume', W / 2, H / 2 + 30, 12, '#ccc');
   }
-  if (state === 'title') drawTitle();
-  else if (state !== 'play') {
+  if (state !== 'play') {
     ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(0, 0, W, H);
     text('Game over', W / 2, H / 2 - 10, 32);
     text('Score: ' + score + ' — ' + START.toLowerCase() + ' to play again', W / 2, H / 2 + 30, 12, '#ccc');
@@ -982,7 +995,6 @@ let lastFrame = 0, accumulator = 0;
 
 function tick() {
   if (!paused) { bgT++; shake *= 0.86; }
-  if (state === 'title') titleT++;
   update();
 }
 
@@ -996,7 +1008,6 @@ function loop(now) {
 }
 addEventListener('resize', layout);
 reset();
-state = 'title';
 requestAnimationFrame(loop);
 
 installBackButton({ pause: () => { paused = true; }, resume: () => { paused = false; }, isPlaying: () => state === 'play' && !paused });

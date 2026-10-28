@@ -80,8 +80,10 @@ const LEAD = [ // two bars of sixteenth steps; null is a rest
 ];
 const BASS_ROOTS = [45, 45, 41, 43]; // one per half bar: A, A, F, G
 let musicTimer = null, musicNext = 0, musicStep = 0;
+let musicOff = false; // the music has its own mute; sound effects are unaffected
 
 function playStep(step, at) {
+  if (musicOff) return;
   const a = ctx();
   const d = Math.max(0, at - a.currentTime);
   const s = step % LEAD.length;
@@ -104,6 +106,9 @@ function schedule() {
 }
 
 export const sound = {
+  get musicOff() { return musicOff; },
+  toggleMusic() { musicOff = !musicOff; return musicOff; },
+
   // starts or pauses the loop; safe to call every frame
   setMusic(on) {
     if (on === (musicTimer !== null)) return;

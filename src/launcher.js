@@ -1,5 +1,6 @@
 import '@fontsource/press-start-2p';
 import { sfx } from './launcher-sound.js';
+import { CANDIES, drawCandy } from './candies.js';
 import { enableMobileFullscreen } from './fullscreen.js';
 import { registerServiceWorker } from './pwa.js';
 
@@ -16,6 +17,7 @@ const GAMES = [
   { name: 'CANDY WALL', blurb: 'Break the wall', href: './wall.html', art: drawWallArt },
   { name: 'CANDY GRID', blurb: 'Fill the lines', href: './candygrid.html', art: drawGridArt },
   { name: 'CANDY DROP', blurb: 'Stack the candy', href: './candydrop.html', art: drawDropArt },
+  { name: 'CANDY POP', blurb: 'Match the sweets', href: './candypop.html', art: drawPopArt },
 ];
 
 if (TOUCH) document.getElementById('hint').textContent = 'Tap a game to play';
@@ -202,6 +204,42 @@ function drawDropArt(x, y, w, h) {
   ctx.globalAlpha = 1;
 }
 
+// a mini match-three board: a hinting pair swaps, the row of three pops and the candy above falls in
+function drawPopArt(x, y, w, h) {
+  const n = 5, s = Math.min(w, h) / n, ox = x + (w - s * n) / 2, oy = y + (h - s * n) / 2;
+  const rows = ['14320', '23142', '30413', '45002', '02341'].map(r => [...r].map(Number)); // swapping (2,1) with (3,1) lines up three reds in row 3
+  const t = bgT % 240, ease = k => k * k * (3 - 2 * k), clamp = k => Math.max(0, Math.min(1, k));
+  const swap = ease(clamp((t - 70) / 16)), pop = clamp((t - 88) / 18), fall = ease(clamp((t - 108) / 24));
+  ctx.fillStyle = '#0d0d1c'; ctx.fillRect(Math.round(ox), Math.round(oy), Math.round(s * n), Math.round(s * n));
+  ctx.save();
+  ctx.beginPath(); ctx.rect(ox, oy, s * n, s * n); ctx.clip();
+  ctx.globalAlpha = t < 20 ? t / 20 : t > 210 ? (240 - t) / 30 : 1;
+  const gap = Math.max(1, Math.round(s / 14));
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    ctx.fillStyle = (r + c) % 2 ? '#15152b' : '#191932';
+    ctx.fillRect(Math.round(ox + c * s + gap / 2), Math.round(oy + r * s + gap / 2), Math.round(s - gap), Math.round(s - gap));
+  }
+  const candy = (type, col, row, scale = 1) => {
+    if (scale <= 0.05) return;
+    const k = CANDIES[type];
+    drawCandy(ctx, k.mask, ox + (col + 0.5) * s, oy + (row + 0.5) * s, s * 0.84 * scale, scale < 1 ? shade(k.color, (1 - scale) * 0.8) : k.color);
+  };
+  for (let c = 0; c < n; c++) {
+    const inMatch = c >= 1 && c <= 3; // the three reds pop and the candy above them drops a row
+    for (let r = 0; r < n; r++) {
+      const endRow = c === 1 && r === 2 ? 3 : c === 1 && r === 3 ? 2 : r;
+      let row = r + (endRow - r) * swap, scale = 1;
+      if (inMatch && endRow === 3) { if (t >= 108) continue; scale = 1 - pop; }
+      else if (inMatch && endRow < 3) row += fall;
+      if (c === 1 && r === 2 && t > 20 && t < 70) row += Math.sin(t * 0.3) * 0.07;
+      candy(rows[r][c], c, row, scale);
+    }
+    if (inMatch && t >= 108) candy((c * 2 + 1) % 6, c, -1 + fall); // a fresh candy drops into the top
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
 const NOTE = [
   '...#####',
   '...#...#',
@@ -292,3 +330,8 @@ function loop(now) {
 }
 layout();
 requestAnimationFrame(loop);
+
+// start the music as soon as the page is up (when arriving from a game the browser already allows sound; on a cold
+// visit it begins at the first tap or key press instead), and again when the page is restored from the back button
+sfx.startMusic();
+addEventListener('pageshow', e => { if (e.persisted) { sfx.unlock(); sfx.startMusic(); } });

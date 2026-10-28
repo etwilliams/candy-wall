@@ -37,12 +37,12 @@ const NAMES = ['', 'SINGLE', 'DOUBLE', 'TRIPLE', 'CANDY DROP!'];
 
 let board, cur, hold, canHold, bag, queue;
 let score, shownScore, lines, level, best, combo, newBest;
-let state = 'title'; // title | play | over
+let state = 'play'; // play | over
 let paused = false;
 let fallT, lockT, lockResets, clearing; // clearing: { rows, t } while full lines flash
 let keys = { left: false, right: false, down: false }, dasT = 0, softT = 0;
 let parts = [], pops = [];
-let shake = 0, bgT = 0, titleT = 0, overT = 0;
+let shake = 0, bgT = 0, overT = 0;
 let stars = [];
 let touch = null; // the finger steering the piece
 let musicBtn = { x: 0, y: 0, s: 0 }; // hit box of the music button, set when drawn
@@ -278,7 +278,6 @@ canvas.addEventListener('pointerdown', e => {
   const [x, y] = pointerPos(e);
   if (Math.abs(x - musicBtn.x) < musicBtn.s && Math.abs(y - musicBtn.y) < musicBtn.s) { toggleMusic(); return; }
   if (paused) { resume(); return; }
-  if (state === 'title') { if (titleT > 60) startGame(); return; }
   if (state === 'over') { if (overT > 45) startGame(); return; }
   if (inRect(x, y, holdRect)) { holdPiece(); return; }
   if (e.pointerType === 'mouse') return; // the mouse only clicks; touch steers
@@ -317,7 +316,7 @@ addEventListener('keydown', e => {
   if (k === 'm' || k === 'M') { sfx.toggleMute(); return; }
   if (k === 'n' || k === 'N') { toggleMusic(); return; }
   if (state !== 'play') {
-    if ((k === ' ' || k === 'Enter') && ((state === 'title' && titleT > 60) || (state === 'over' && overT > 45))) startGame();
+    if ((k === ' ' || k === 'Enter') && (state === 'over' && overT > 45)) startGame();
     return;
   }
   if (k === 'Escape' || k === 'p' || k === 'P') { paused ? resume() : pause(); return; }
@@ -347,7 +346,6 @@ function update() {
   if (paused) return;
   bgT++;
   shake *= 0.86;
-  if (state === 'title') titleT++;
   if (state === 'over') overT++;
   shownScore += Math.ceil((score - shownScore) * 0.12);
   if (shownScore > score) shownScore = score;
@@ -383,13 +381,6 @@ function update() {
 function text(str, x, y, size, color = '#fff', align = 'center') {
   ctx.fillStyle = color; ctx.font = `${size}px "Press Start 2P", monospace`; ctx.textAlign = align;
   ctx.fillText(str, x, y);
-}
-function easeOutBounce(t) {
-  const n = 7.5625, d = 2.75;
-  if (t < 1 / d) return n * t * t;
-  if (t < 2 / d) return n * (t -= 1.5 / d) * t + 0.75;
-  if (t < 2.5 / d) return n * (t -= 2.25 / d) * t + 0.9375;
-  return n * (t -= 2.625 / d) * t + 0.984375;
 }
 function shade(hex, amt) { // amt > 0 mixes toward white, < 0 toward black
   const n = parseInt(hex.slice(1), 16), t = amt < 0 ? 0 : 255, a = Math.abs(amt);
@@ -569,46 +560,19 @@ function drawFx() {
   ctx.textBaseline = 'alphabetic';
 }
 
-function drawTitle() {
-  ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, W, H);
-  const title = 'CANDY DROP';
-  const size = Math.min(64, W * 0.88 / title.length);
-  const x0 = W / 2 - (title.length * size) / 2 + size / 2;
-  ctx.textBaseline = 'middle';
-  const DROP = 45, STAGGER = 7;
-  const landedAt = (title.length - 1) * STAGGER + DROP;
-  [...title].forEach((ch, i) => {
-    if (ch === ' ') return;
-    const t = Math.max(0, Math.min(1, (titleT - i * STAGGER) / DROP));
-    if (t === 0) return;
-    const x = x0 + i * size, rest = H / 2 - size;
-    let y = rest - (1 - easeOutBounce(t)) * (rest + size);
-    if (t === 1) y += Math.sin(titleT * 0.07 + i * 0.7) * size * 0.07;
-    const color = COLORS[(i + (t === 1 ? Math.floor(titleT / 18) : 0)) % COLORS.length];
-    text(ch, x, y + size * 0.08, size, 'rgba(0,0,0,0.5)');
-    text(ch, x, y, size, color);
-  });
-  ctx.textBaseline = 'alphabetic';
-  ctx.globalAlpha = Math.max(0, Math.min(1, (titleT - landedAt) / 30));
-  text('stack the candy, clear the lines', W / 2, H / 2 - size * 0.15, Math.min(size * 0.22, W * 0.03), '#ffb3e6');
-  ctx.globalAlpha = 1;
-  if (titleT > landedAt && Math.floor(Date.now() / 500) % 2 === 0) text(START + ' to start', W / 2, H / 2 + size, Math.max(10, size * 0.28), '#ccc');
-  if (best > 0) text('Best ' + best, W / 2, H / 2 + size * 1.9, Math.max(10, size * 0.24), '#ffd24d');
-}
 
 function draw() {
   ctx.save();
   if (shake > 0.3) ctx.translate((Math.random() - 0.5) * 2 * shake * scale, (Math.random() - 0.5) * 2 * shake * scale);
   ctx.clearRect(-20, -20, W + 40, H + 40);
   drawBackground();
-  if (state !== 'title') { drawHud(); drawBoard(); drawFx(); }
+  drawHud(); drawBoard(); drawFx();
   if (paused) {
     ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);
     text('Paused', W / 2, H / 2 - 10, Math.min(32, W * 0.08));
     text(TOUCH ? 'Tap to resume' : 'Press Esc or click to resume', W / 2, H / 2 + 30, 12, '#ccc');
   }
-  if (state === 'title') drawTitle();
-  else if (state === 'over') {
+  if (state === 'over') {
     ctx.fillStyle = `rgba(0,0,0,${Math.min(0.7, overT / 60)})`; ctx.fillRect(0, 0, W, H);
     if (overT > 20) {
       text('Game over', W / 2, H / 2 - 40, Math.min(32, W * 0.08));
@@ -635,8 +599,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 layout();
-reset();
-state = 'title';
+startGame();
 requestAnimationFrame(loop);
 
 installBackButton({ pause, resume, isPlaying: () => state === 'play' && !paused });

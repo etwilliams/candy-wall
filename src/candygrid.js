@@ -70,11 +70,11 @@ const CROWN = [
 ];
 
 let grid, tray, score, shownScore, best, streak;
-let state = 'title'; // title | play | over
+let state = 'play'; // play | over
 let paused = false;
 let drag = null; // { slot, x, y, touch, k }: the piece being carried, with its grab point
 let parts = [], pops = []; // pixel debris and floating text
-let shake = 0, bgT = 0, titleT = 0, overT = 0, newBest = false;
+let shake = 0, bgT = 0, overT = 0, newBest = false;
 let stars = [];
 // layout, set in layout()
 let cell, gx, gy, headerH, trayY, scale;
@@ -248,7 +248,6 @@ canvas.addEventListener('pointerdown', e => {
   const [x, y] = pointerPos(e);
   if (Math.abs(x - musicBtn.x) < musicBtn.s && Math.abs(y - musicBtn.y) < musicBtn.s) { toggleMusic(); return; }
   if (paused) { paused = false; sfx.setMusic(true); return; }
-  if (state === 'title') { if (titleT > 60) startGame(); return; }
   if (state === 'over') { if (overT > 45) startGame(); return; }
   if (drag) return;
   for (let i = 0; i < 3; i++) { // pick the tray slot under the pointer (a generous hit area around each piece)
@@ -294,7 +293,7 @@ addEventListener('keydown', e => {
     sfx.setMusic(!paused);
     if (paused) drag = null;
   } else if ((e.key === ' ' || e.key === 'Enter') && state !== 'play') {
-    if ((state === 'title' && titleT > 60) || (state === 'over' && overT > 45)) startGame();
+    if (state === 'over' && overT > 45) startGame();
   }
 });
 addEventListener('blur', () => { if (state === 'play' && !paused) { paused = true; drag = null; sfx.setMusic(false); } });
@@ -305,7 +304,6 @@ function update() {
   if (paused) return;
   bgT++;
   shake *= 0.86;
-  if (state === 'title') titleT++;
   if (state === 'over') overT++;
   shownScore += Math.ceil((score - shownScore) * 0.12);
   if (shownScore > score) shownScore = score;
@@ -543,56 +541,27 @@ function drawFx() {
   ctx.textBaseline = 'alphabetic';
 }
 
-function drawTitle() {
-  ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, W, H);
-  const title = 'CANDY GRID';
-  const size = Math.min(64, W * 0.88 / title.length);
-  const x0 = W / 2 - (title.length * size) / 2 + size / 2;
-  ctx.textBaseline = 'middle';
-  const DROP = 45, STAGGER = 7;
-  const landedAt = (title.length - 1) * STAGGER + DROP;
-  [...title].forEach((ch, i) => {
-    if (ch === ' ') return;
-    const t = Math.max(0, Math.min(1, (titleT - i * STAGGER) / DROP));
-    if (t === 0) return;
-    const x = x0 + i * size, rest = H / 2 - size;
-    let y = rest - (1 - easeOutBounce(t)) * (rest + size);
-    if (t === 1) y += Math.sin(titleT * 0.07 + i * 0.7) * size * 0.07;
-    const color = COLORS[(i + (t === 1 ? Math.floor(titleT / 18) : 0)) % COLORS.length];
-    text(ch, x, y + size * 0.08, size, 'rgba(0,0,0,0.5)');
-    text(ch, x, y, size, color);
-  });
-  ctx.textBaseline = 'alphabetic';
-  ctx.globalAlpha = Math.max(0, Math.min(1, (titleT - landedAt) / 30));
-  text('drop candy blocks, clear the lines', W / 2, H / 2 - size * 0.15, Math.min(size * 0.22, W * 0.03), '#ffb3e6');
-  ctx.globalAlpha = 1;
-  if (titleT > landedAt && Math.floor(Date.now() / 500) % 2 === 0) text(START + ' to start', W / 2, H / 2 + size, Math.max(10, size * 0.28), '#ccc');
-  if (best > 0) text('Best ' + best, W / 2, H / 2 + size * 1.9, Math.max(10, size * 0.24), '#ffd24d');
-}
 
 function draw() {
   ctx.save();
   if (shake > 0.3) ctx.translate((Math.random() - 0.5) * 2 * shake * scale, (Math.random() - 0.5) * 2 * shake * scale);
   ctx.clearRect(-20, -20, W + 40, H + 40);
   drawBackground();
-  if (state !== 'title') {
-    let preview = null;
-    if (drag) {
-      const t = dragTarget();
-      if (t) preview = { color: tray[drag.slot].color, cells: tray[drag.slot].cells.map(([r, c]) => [r + t.r, c + t.c]) };
-    }
-    drawHud();
-    drawBoard(preview);
-    drawPieces();
-    drawFx();
+  let preview = null;
+  if (drag) {
+    const t = dragTarget();
+    if (t) preview = { color: tray[drag.slot].color, cells: tray[drag.slot].cells.map(([r, c]) => [r + t.r, c + t.c]) };
   }
+  drawHud();
+  drawBoard(preview);
+  drawPieces();
+  drawFx();
   if (paused) {
     ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);
     text('Paused', W / 2, H / 2 - 10, Math.min(32, W * 0.08));
     text(TOUCH ? 'Tap to resume' : 'Press Esc or click to resume', W / 2, H / 2 + 30, 12, '#ccc');
   }
-  if (state === 'title') drawTitle();
-  else if (state === 'over') {
+  if (state === 'over') {
     ctx.fillStyle = `rgba(0,0,0,${Math.min(0.7, overT / 60)})`; ctx.fillRect(0, 0, W, H);
     if (overT > 20) {
       const s = Math.min(32, W * 0.08);
@@ -620,7 +589,7 @@ function loop(now) {
 }
 layout();
 reset();
-state = 'title';
+sfx.setMusic(true);
 requestAnimationFrame(loop);
 
 
