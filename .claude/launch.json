@@ -4,7 +4,7 @@
     {
       "name": "candy-wall",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5173", "--strictPort"],
+      "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0", "--port", "5173", "--strictPort"],
       "port": 5173
     }
   ]

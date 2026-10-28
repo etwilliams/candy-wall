@@ -1,8 +1,10 @@
 import '@fontsource/press-start-2p';
 import { sfx } from './launcher-sound.js';
 import { enableMobileFullscreen } from './fullscreen.js';
+import { registerServiceWorker } from './pwa.js';
 
 enableMobileFullscreen();
+registerServiceWorker();
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');

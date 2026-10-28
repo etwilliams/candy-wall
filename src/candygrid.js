@@ -2,8 +2,10 @@ import '@fontsource/press-start-2p';
 import { sfx } from './candygrid-sound.js';
 import { installBackButton } from './backbutton.js';
 import { enableMobileFullscreen } from './fullscreen.js';
+import { registerServiceWorker } from './pwa.js';
 
 enableMobileFullscreen();
+registerServiceWorker();
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -621,8 +623,6 @@ reset();
 state = 'title';
 requestAnimationFrame(loop);
 
-// installable / offline: the service worker is only registered in production builds so dev reloads stay fresh
-if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('./sw.js').catch(() => {});
 
 installBackButton({
   pause: () => { paused = true; drag = null; sfx.setMusic(false); },
