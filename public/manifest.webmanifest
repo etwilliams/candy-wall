@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Candy Arcade",
-  "short_name": "Candy Arcade",
+  "name": "Sugar Rush",
+  "short_name": "Sugar Rush",
   "description": "Candy Wall, Candy Grid and Candy Drop: three 8-bit candy games.",
   "start_url": "./",
   "scope": "./",

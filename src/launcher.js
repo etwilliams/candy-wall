@@ -264,8 +264,8 @@ function drawMusicButton() {
 }
 
 function drawTitle() {
-  const title = 'CANDY ARCADE';
-  const size = Math.min(48, W * 0.88 / title.length);
+  const title = 'SUGAR RUSH';
+  const size = Math.min(76, W * 0.9 / title.length);
   const x0 = W / 2 - (title.length * size) / 2 + size / 2, rest = Math.max(size, H * 0.13);
   ctx.textBaseline = 'middle';
   const DROP = 45, STAGGER = 5;
