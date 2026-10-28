@@ -417,11 +417,13 @@ function drawTitle() {
 function drawSettingsTile(c, on) {
   const gp = Math.max(2, Math.floor(c.h * 0.6 / 12));
   const label = 'SETTINGS', fs = Math.min(20, c.w * 0.075);
-  const gx = Math.round(c.x + c.w / 2 - fs * label.length * 0.5 - gp * 12 - 16), gy = Math.round(c.y + c.h / 2 - gp * 6);
+  ctx.font = graphics.font(fs);
+  const iconW = gp * 12, gapW = 16, total = iconW + gapW + ctx.measureText(label).width; // centre icon and label together
+  const gx = Math.round(c.x + c.w / 2 - total / 2), gy = Math.round(c.y + c.h / 2 - gp * 6);
   if (graphics.hibit) iconHi('gear', gx + gp * 6, gy + gp * 6, gp * 6, on ? '#ffd24d' : '#ff6bd1');
   else drawSprite(GEAR, gx, gy, gp, on ? '#ffd24d' : '#ff6bd1');
   ctx.textBaseline = 'middle';
-  text(label, gx + gp * 12 + 16, c.y + c.h / 2, fs, '#fff', 'left');
+  text(label, gx + iconW + gapW, c.y + c.h / 2, fs, '#fff', 'left');
   ctx.textBaseline = 'alphabetic';
 }
 
