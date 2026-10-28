@@ -81,7 +81,55 @@ function bake(shape, color, { rows, stripe, spin = 0 }) {
   return cv;
 }
 
+// smooth hi-bit candy: gradient body, dark outline, bands for the striped ones, soft specular highlight
+function drawCandyHi(ctx, shape, cx, cy, size, color, { rows, stripe, spin = 0 }) {
+  const r = size / 2;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.lineJoin = 'round';
+  outline(ctx, shape, r);
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = r * 0.35; ctx.shadowOffsetY = r * 0.14;
+  if (rows && ctx.createConicGradient) {
+    const g = ctx.createConicGradient(spin, 0, 0);
+    rows.forEach((col, i) => g.addColorStop(i / rows.length, col));
+    g.addColorStop(1, rows[0]);
+    ctx.fillStyle = g;
+  } else {
+    const g = ctx.createLinearGradient(-r * 0.6, -r, r * 0.6, r);
+    g.addColorStop(0, shade(color, 0.4)); g.addColorStop(0.45, color); g.addColorStop(1, shade(color, -0.45));
+    ctx.fillStyle = g;
+  }
+  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  outline(ctx, shape, r); ctx.clip();
+  if (rows) { // shade the rainbow ball like a sphere
+    const sg = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.05, 0, 0, r);
+    sg.addColorStop(0, 'rgba(255,255,255,0.65)'); sg.addColorStop(0.5, 'rgba(255,255,255,0)'); sg.addColorStop(1, 'rgba(0,0,0,0.45)');
+    ctx.fillStyle = sg; ctx.fillRect(-r, -r, size, size);
+  } else {
+    const sg = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.05, 0, 0, r * 1.1);
+    sg.addColorStop(0, 'rgba(255,255,255,0.35)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sg; ctx.fillRect(-r, -r, size, size);
+  }
+  if (stripe) {
+    ctx.fillStyle = rows ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.55)';
+    for (const d of [-0.33, 0.33]) {
+      if (stripe === 'h') ctx.fillRect(-r, r * d - r * 0.07, size, r * 0.14);
+      else ctx.fillRect(r * d - r * 0.07, -r, r * 0.14, size);
+    }
+  }
+  ctx.restore();
+  outline(ctx, shape, r);
+  ctx.lineWidth = Math.max(1, size * 0.045); ctx.strokeStyle = rows ? 'rgba(40,40,70,0.9)' : shade(color, -0.55); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.75)'; // specular spot
+  ctx.beginPath(); ctx.ellipse(-r * 0.38, -r * 0.42, r * 0.2, r * 0.12, -0.7, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
 export function drawCandy(ctx, shape, cx, cy, size, color, opts = {}) {
+  if (opts.hibit) { drawCandyHi(ctx, shape, cx, cy, size, color, opts); return; }
   const animated = !!opts.rows; // the rainbow ball spins, so it is redrawn rather than cached
   const k = `${shape}|${color}|${opts.stripe || ''}`;
   let sprite = animated ? bake(shape, color, opts) : cache.get(k);

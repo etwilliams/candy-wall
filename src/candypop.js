@@ -4,6 +4,8 @@ import { CANDIES, ORB, drawCandy, shade } from './candies.js';
 import { installBackButton } from './backbutton.js';
 import { enableMobileFullscreen } from './fullscreen.js';
 import { registerServiceWorker } from './pwa.js';
+import { graphics } from './graphics.js';
+import * as hi from './wall-hibit.js';
 
 enableMobileFullscreen();
 registerServiceWorker();
@@ -45,15 +47,18 @@ let stars = [];
 // layout, set in layout()
 let cell, gx, gy, hudH, scale;
 
-let musicBtn = { x: 0, y: 0, s: 0 }; // hit box of the music button, set when drawn
-try { sfx.toggleMusic(); if (localStorage.getItem('candypop-music') !== 'off') sfx.toggleMusic(); } catch { /* storage unavailable: music stays on */ }
 try { best = Number(localStorage.getItem('candypop-best')) || 0; } catch { best = 0; }
 function saveBest() { try { localStorage.setItem('candypop-best', String(best)); } catch { /* storage unavailable */ } }
 
 // --- layout ---
 function layout() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  // back the canvas with real device pixels so the smooth hi-bit sprites stay sharp on retina screens; drawing stays in CSS pixels
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   scale = Math.min(W / 480, H / 800);
   hudH = Math.max(120, Math.min(160, H * 0.2));
   cell = Math.max(10, Math.floor(Math.min((W - 56) / N, (H - hudH - 44) / N)));
@@ -364,10 +369,6 @@ function startGame() {
 }
 
 // --- input ---
-function toggleMusic() {
-  const off = sfx.toggleMusic();
-  try { localStorage.setItem('candypop-music', off ? 'off' : 'on'); } catch { /* storage unavailable */ }
-}
 
 function pointerPos(e) {
   const rect = canvas.getBoundingClientRect();
@@ -382,7 +383,6 @@ function cellAt(x, y) {
 canvas.addEventListener('pointerdown', e => {
   sfx.unlock();
   const [x, y] = pointerPos(e);
-  if (Math.abs(x - musicBtn.x) < musicBtn.s && Math.abs(y - musicBtn.y) < musicBtn.s) { toggleMusic(); return; }
   if (paused) { paused = false; sfx.setMusic(true); return; }
   if (state === 'over') { if (overT > 45) startGame(); return; }
   if (phase !== 'idle') return;
@@ -409,7 +409,6 @@ canvas.addEventListener('pointercancel', () => { down = null; });
 
 addEventListener('keydown', e => {
   if (e.key === 'm' || e.key === 'M') sfx.toggleMute();
-  else if (e.key === 'n' || e.key === 'N') toggleMusic();
   else if (e.key === 'Escape' && state === 'play') {
     paused = !paused;
     sfx.setMusic(!paused);
@@ -487,7 +486,7 @@ function phaseUpdate() {
 
 // --- drawing ---
 function text(str, x, y, size, color = '#fff', align = 'center') {
-  ctx.fillStyle = color; ctx.font = `${size}px "Press Start 2P", monospace`; ctx.textAlign = align;
+  ctx.fillStyle = color; ctx.font = graphics.font(size); ctx.textAlign = align;
   ctx.fillText(str, x, y);
 }
 
@@ -514,6 +513,7 @@ function drawBackground() {
     const speed = (st.layer + 1) * 0.12 * scale, size = Math.max(1, Math.round((st.layer + 1) * scale));
     const y = (st.y + bgT * speed) % H;
     ctx.globalAlpha = 0.25 + 0.2 * st.layer + 0.2 * Math.sin(bgT * 0.04 + st.phase);
+    if (graphics.hibit) { hi.star(ctx, st.x, y, size, st.layer, st.color, ctx.globalAlpha); continue; }
     ctx.fillStyle = st.color;
     ctx.fillRect(Math.round(st.x), Math.round(y), size, size);
   }
@@ -527,21 +527,24 @@ function drawGem(g, hinted) {
   if (size < 2) return;
   if (g.t < 0) { // rainbow ball: every pixel row a different colour, cycling
     const rows = Array.from({ length: 7 }, (_, i) => COLORS[(i + Math.floor(bgT / 5)) % COLORS.length]);
-    drawCandy(ctx, ORB, cx, cy, size * 1.08, '#fff', { rows, spin: bgT * 0.06 });
+    drawCandy(ctx, ORB, cx, cy, size * 1.08, '#fff', { rows, spin: bgT * 0.06, hibit: graphics.hibit });
   } else {
     const color = g.dying ? shade(CANDIES[g.t].color, g.dying * 0.8) : CANDIES[g.t].color;
-    drawCandy(ctx, CANDIES[g.t].mask, cx, cy, size, color, { stripe: g.sp === 'h' || g.sp === 'v' ? g.sp : null });
+    drawCandy(ctx, CANDIES[g.t].mask, cx, cy, size, color, { stripe: g.sp === 'h' || g.sp === 'v' ? g.sp : null, hibit: graphics.hibit });
   }
   if (g.sp === 'bomb' && !g.dying) { // wrapped candy: a pulsing white wrapper
     ctx.strokeStyle = `rgba(255,255,255,${0.55 + 0.4 * Math.sin(bgT * 0.2)})`;
     ctx.lineWidth = Math.max(2, Math.round(cell / 14));
-    ctx.strokeRect(Math.round(cx - cell * 0.44), Math.round(cy - cell * 0.44), Math.round(cell * 0.88), Math.round(cell * 0.88));
+    if (graphics.hibit) { hi.roundedRect(ctx, cx - cell * 0.44, cy - cell * 0.44, cell * 0.88, cell * 0.88, cell * 0.24); ctx.stroke(); }
+    else ctx.strokeRect(Math.round(cx - cell * 0.44), Math.round(cy - cell * 0.44), Math.round(cell * 0.88), Math.round(cell * 0.88));
   }
 }
 
 function drawBoard() {
   const pad = Math.max(4, Math.round(cell * 0.18)), px = Math.max(2, Math.round(cell / 9));
   const bw = cell * N;
+  if (graphics.hibit) hi.panel(ctx, gx - pad - px, gy - pad - px, bw + 2 * (pad + px), bw + 2 * (pad + px), cell * 0.35);
+  else {
   // dark panel with a pixel border
   ctx.fillStyle = '#0d0d1c';
   ctx.fillRect(gx - pad - px, gy - pad - px, bw + 2 * (pad + px), bw + 2 * (pad + px));
@@ -553,10 +556,12 @@ function drawBoard() {
   ctx.fillRect(gx + bw + pad, gy - pad - px, px, bw + 2 * (pad + px));
   ctx.fillStyle = '#1e1e38';
   ctx.fillRect(gx - pad, gy - pad, bw + 2 * pad, bw + 2 * pad);
+  }
 
   const gap = Math.max(1, Math.round(cell / 14));
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     const [x, y] = cellXY(r, c);
+    if (graphics.hibit) { hi.socket(ctx, x + gap / 2, y + gap / 2, cell - gap, cell - gap); continue; }
     ctx.fillStyle = (r + c) % 2 ? '#15152b' : '#191932';
     ctx.fillRect(Math.round(x + gap / 2), Math.round(y + gap / 2), cell - gap, cell - gap);
   }
@@ -571,7 +576,8 @@ function drawBoard() {
     const [x, y] = cellXY(sel[0], sel[1]);
     ctx.strokeStyle = `rgba(255,255,255,${0.7 + 0.3 * Math.sin(bgT * 0.3)})`;
     ctx.lineWidth = Math.max(2, Math.round(cell / 12));
-    ctx.strokeRect(Math.round(x + gap + px / 2), Math.round(y + gap + px / 2), cell - 2 * gap - px, cell - 2 * gap - px);
+    if (graphics.hibit) { hi.roundedRect(ctx, x + gap + px / 2, y + gap + px / 2, cell - 2 * gap - px, cell - 2 * gap - px, cell * 0.24); ctx.stroke(); }
+    else ctx.strokeRect(Math.round(x + gap + px / 2), Math.round(y + gap + px / 2), cell - 2 * gap - px, cell - 2 * gap - px);
   }
   ctx.restore();
 }
@@ -582,12 +588,17 @@ function drawBeams() {
     const k = b.life / b.max, [x, y] = cellXY(b.r, b.c);
     ctx.globalAlpha = k;
     ctx.fillStyle = '#fff';
-    if (b.kind === 'h') ctx.fillRect(gx, Math.round(y + cell * (0.5 - 0.3 * k)), bw, Math.round(cell * 0.6 * k));
-    else if (b.kind === 'v') ctx.fillRect(Math.round(x + cell * (0.5 - 0.3 * k)), gy, Math.round(cell * 0.6 * k), bw);
-    else if (b.kind === 'bomb') {
+    ctx.shadowColor = graphics.hibit ? '#ffffff' : 'transparent'; ctx.shadowBlur = graphics.hibit ? cell * 0.5 : 0;
+    if (b.kind === 'h' || b.kind === 'v') {
+      const hz = b.kind === 'h', th = cell * 0.6 * k;
+      const bx = hz ? gx : x + cell * 0.5 - th / 2, by = hz ? y + cell * 0.5 - th / 2 : gy, bwid = hz ? bw : th, bht = hz ? th : bw;
+      if (graphics.hibit) { hi.roundedRect(ctx, bx, by, bwid, bht, th / 2); ctx.fill(); }
+      else ctx.fillRect(Math.round(bx), Math.round(by), Math.round(bwid), Math.round(bht));
+    } else if (b.kind === 'bomb') {
       const s = cell * (1 + (1 - k) * 2.2);
       ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, cell / 8);
-      ctx.strokeRect(Math.round(x + cell / 2 - s / 2), Math.round(y + cell / 2 - s / 2), Math.round(s), Math.round(s));
+      if (graphics.hibit) { ctx.beginPath(); ctx.arc(x + cell / 2, y + cell / 2, s / 2, 0, Math.PI * 2); ctx.stroke(); }
+      else ctx.strokeRect(Math.round(x + cell / 2 - s / 2), Math.round(y + cell / 2 - s / 2), Math.round(s), Math.round(s));
     } else {
       ctx.strokeStyle = COLORS[Math.floor(bgT / 2) % COLORS.length]; ctx.lineWidth = Math.max(2, cell / 10);
       for (const [r, c] of b.targets) {
@@ -600,41 +611,17 @@ function drawBeams() {
       }
     }
   }
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
 }
 
 function drawCrown(x, y, px, color) { // x is the right edge
+  if (graphics.hibit) { hi.crown(ctx, x, y, px, color); return; }
   CROWN.forEach((row, r) => [...row].forEach((ch, c) => {
     if (ch !== '#') return;
     ctx.fillStyle = r === 4 ? shade(color, -0.3) : color;
     ctx.fillRect(Math.round(x - (9 - c) * px), Math.round(y + r * px), px, px);
   }));
-}
-
-// 8x8 pixel music note, with a slash through it while the music is off
-const NOTE = [
-  '...#####',
-  '...#...#',
-  '...#...#',
-  '...#...#',
-  '.###.###',
-  '####.###',
-  '.##..##.',
-  '........',
-];
-const musicPx = () => Math.max(2, Math.min(3, Math.round(cell / 14)));
-function drawMusicButton(cx, y) {
-  const px = musicPx(), s = px * 8;
-  const x = Math.round(cx - s / 2);
-  musicBtn = { x: x + s / 2, y: y + s / 2, s: Math.max(s, 24) * 0.9 };
-  const off = sfx.musicOff;
-  ctx.fillStyle = off ? '#666' : '#ff6bd1';
-  NOTE.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === '#') ctx.fillRect(x + c * px, y + r * px, px, px); }));
-  if (off) for (let i = 0; i < 8; i++) { // diagonal slash with a dark edge
-    ctx.fillStyle = '#1b1b2f'; ctx.fillRect(x + i * px - px, y + (7 - i) * px, px, px);
-    ctx.fillStyle = '#ff4d4d'; ctx.fillRect(x + i * px, y + (7 - i) * px, px, px);
-  }
-  return s;
 }
 
 function drawHud() {
@@ -656,16 +643,24 @@ function drawHud() {
   const from = level > 1 ? goal(level - 1) : 0, k = Math.max(0, Math.min(1, (score - from) / (goal(level) - from)));
   text('LEVEL ' + level, gx, barY - 6, lab, '#fff', 'left');
   text('GOAL ' + goal(level), gx + lab * 9 + 12, barY - 6, lab, '#aaa', 'left');
-  drawMusicButton(right - musicPx() * 4, barY - 6 - musicPx() * 8);
+  if (graphics.hibit) hi.bar(ctx, gx, barY, bw, barH, k, COLORS[Math.floor(bgT / 12) % COLORS.length]);
+  else {
   ctx.fillStyle = '#0d0d1c'; ctx.fillRect(gx, barY, bw, barH);
   ctx.fillStyle = COLORS[Math.floor(bgT / 12) % COLORS.length];
   ctx.fillRect(gx, barY, Math.round(bw * k), barH);
   ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(gx, barY, Math.round(bw * k), Math.max(1, Math.round(barH / 4)));
   ctx.strokeStyle = '#34345a'; ctx.lineWidth = 2; ctx.strokeRect(gx - 1, barY - 1, bw + 2, barH + 2);
+  }
 }
 
 function drawFx() {
   for (const d of parts) {
+    if (graphics.hibit) {
+      const f = d.life / d.max;
+      if (d.flash) hi.blast(ctx, d.x, d.y, d.size * (1 + (1 - f) * 0.4) * 0.8, f, true, '#ffffff');
+      else hi.blast(ctx, d.x, d.y, d.size * 0.9, Math.min(1, d.life / 20), false, d.color);
+      continue;
+    }
     if (d.flash) {
       ctx.globalAlpha = d.life / d.max;
       ctx.fillStyle = '#fff';

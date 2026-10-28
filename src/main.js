@@ -3,6 +3,8 @@ import { sound } from './sound.js';
 import { installBackButton } from './backbutton.js';
 import { enableMobileFullscreen } from './fullscreen.js';
 import { registerServiceWorker } from './pwa.js';
+import { graphics } from './graphics.js';
+import * as hi from './wall-hibit.js';
 
 enableMobileFullscreen();
 registerServiceWorker();
@@ -165,8 +167,6 @@ let bigT, wideT, narrowT, missileT;          // remaining frames of timed effect
 let bricks, lives, score, level, state; // state: 'play' | 'lost'
 let keys = {};
 let paused = false;
-let musicBtn = { x: 0, y: 0, s: 0 }; // hit box of the music button, in canvas pixels; set when drawn
-try { sound.toggleMusic(); if (localStorage.getItem('wall-music') !== 'off') sound.toggleMusic(); } catch { /* storage unavailable: music stays on */ }
 let slowT = 0, fastT = 0, stickyT = 0, shield = false, speedMult = 1; // more effects: ball speed, sticky paddle, bottom shield
 let shake = 0; // screen shake strength in design pixels; decays every frame
 let bgT = 0, stars = []; // animation clocks (frames) and the background starfield
@@ -179,8 +179,13 @@ function newBall(x, y, dx, dy) {
 
 function layout() {
   const oldW = W, oldH = H, oldScale = scale;
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  // back the canvas with real device pixels so the smooth hi-bit sprites stay sharp on retina screens; drawing stays in CSS pixels
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   scale = Math.min(W / BASE_W, H / BASE_H);
   const k = scale;
   GAP = BASE_GAP * k; TOP = Math.max(BASE_TOP * k, 56); BH = BASE_BH * k; // keep room for the HUD on small screens
@@ -285,6 +290,7 @@ function drawBackground() {
     const speed = (st.layer + 1) * 0.12 * scale, size = Math.max(1, Math.round((st.layer + 1) * scale));
     const y = (st.y + bgT * speed) % H;
     ctx.globalAlpha = 0.25 + 0.2 * st.layer + 0.2 * Math.sin(bgT * 0.04 + st.phase);
+    if (graphics.hibit) { hi.star(ctx, st.x, y, size, st.layer, st.color, ctx.globalAlpha); continue; }
     ctx.fillStyle = st.color;
     ctx.fillRect(Math.round(st.x), Math.round(y), size, size);
   }
@@ -318,20 +324,6 @@ function releaseBall(b, boosted) {
   b.dy = -b.speed * Math.cos(a);
   b.held = false;
   if (boosted) { b.boost = BOOST; b.pierce = 1; b.charged = true; }
-}
-
-function toggleMusic() {
-  const off = sound.toggleMusic();
-  try { localStorage.setItem('wall-music', off ? 'off' : 'on'); } catch { /* storage unavailable */ }
-}
-// true (and toggles the music) when a press at these client coordinates lands on the music button
-function pressMusic(clientX, clientY) {
-  const rect = canvas.getBoundingClientRect();
-  const x = (clientX - rect.left) * (W / rect.width), y = (clientY - rect.top) * (H / rect.height);
-  if (Math.abs(x - musicBtn.x) > musicBtn.s || Math.abs(y - musicBtn.y) > musicBtn.s) return false;
-  sound.unlock();
-  toggleMusic();
-  return true;
 }
 
 function action() {
@@ -378,13 +370,12 @@ addEventListener('keydown', e => {
   keys[e.key] = true;
   sound.unlock();
   if (e.key === 'm' || e.key === 'M') sound.toggleMute();
-  if (e.key === 'n' || e.key === 'N') toggleMusic();
   if (e.key === 'Escape' && state === 'play' && !e.repeat) { paused = !paused; return; }
   if (e.key === ' ') { e.preventDefault(); if (!e.repeat) action(); }
 });
 addEventListener('keyup', e => keys[e.key] = false);
 canvas.addEventListener('mousemove', e => movePaddleTo(e.clientX));
-canvas.addEventListener('mousedown', e => { if (!pressMusic(e.clientX, e.clientY)) action(); });
+canvas.addEventListener('mousedown', () => action());
 
 // Touch: drag left/right to slide the paddle (relative, so the finger never hides it), tap to launch / pop the paddle.
 // A second finger tapping while the first is dragging also fires, so you can boost without lifting off.
@@ -395,7 +386,6 @@ canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   sound.unlock();
   for (const t of e.changedTouches) {
-    if (pressMusic(t.clientX, t.clientY)) continue;
     if (!drag) drag = { id: t.identifier, lastX: t.clientX, startX: t.clientX, startT: performance.now(), moved: false };
     else action(); // extra finger = tap
   }
@@ -700,11 +690,12 @@ function update() {
 }
 
 function text(str, x, y, size, color = '#fff', align = 'center') {
-  ctx.fillStyle = color; ctx.font = `${size}px "Press Start 2P", monospace`; ctx.textAlign = align;
+  ctx.fillStyle = color; ctx.font = graphics.font(size); ctx.textAlign = align;
   ctx.fillText(str, x, y);
 }
 
 function drawMissile(m) {
+  if (graphics.hibit) { hi.missile(ctx, m.x, m.y, scale); return; }
   const w = 6 * scale, h = 16 * scale;
   ctx.fillStyle = '#e8e8f0';
   ctx.fillRect(m.x - w / 2, m.y + h * 0.25, w, h * 0.55);
@@ -729,6 +720,11 @@ function drawIcon(icon, d, color) {
 
 function drawCapsule(d) {
   const p = POWERUPS[d.type];
+  if (graphics.hibit) {
+    hi.capsule(ctx, d.x - CAPSULE_W / 2, d.y - CAPSULE_H / 2, CAPSULE_W, CAPSULE_H, p.color, p.bad);
+    drawIcon(p.icon, d, p.bad ? p.color : p.iconColor || '#111');
+    return;
+  }
   const cpx = Math.max(2, Math.round(CAPSULE_H / 9)), x = d.x - CAPSULE_W / 2, y = d.y - CAPSULE_H / 2;
   if (p.bad) { // dark pill with a pixel outline
     pixelPill(x, y, CAPSULE_W, CAPSULE_H, p.color, cpx);
@@ -855,24 +851,13 @@ function draw() {
   ctx.restore();
 }
 
-// 8x8 pixel music note
-const NOTE = [
-  '...#####',
-  '...#...#',
-  '...#...#',
-  '...#...#',
-  '.###.###',
-  '####.###',
-  '.##..##.',
-  '........',
-];
-
 function drawScene() {
   ctx.clearRect(0, 0, W, H);
   drawBackground();
 
   for (const b of bricks) {
     if (!b.alive) continue;
+    if (graphics.hibit) { if (b.maxHp > 1) hi.toughBrick(ctx, b, BW, BH); else hi.brick(ctx, b.x, b.y, BW, BH, b.color); continue; }
     const bpx = Math.max(2, Math.round(BH / 8));
     pixelBox(b.x, b.y, BW, BH, b.color, bpx);
     if (b.maxHp > 1) drawToughBrick(b, bpx);
@@ -891,7 +876,8 @@ function drawScene() {
 
   const padColor = narrowT > 0 ? '#ff8a8a' : wideT > 0 ? '#ffe28a' : stickyT > 0 ? '#d6ec7a' : '#c9cde0';
   const padY = paddle.y - LIFT * paddle.punch;
-  pixelBox(paddle.x, padY, paddle.w, paddle.h, padColor, Math.max(2, Math.round(paddle.h / 5)));
+  if (graphics.hibit) hi.paddle(ctx, paddle.x, padY, paddle.w, paddle.h, padColor);
+  else pixelBox(paddle.x, padY, paddle.w, paddle.h, padColor, Math.max(2, Math.round(paddle.h / 5)));
 
   if (missileT > 0) { // armed: little launchers on the paddle ends
     ctx.fillStyle = '#b57bff';
@@ -900,6 +886,7 @@ function drawScene() {
 
   for (const d of debris) { // missile blasts, drawn as chunky squares for the 8-bit look
     const f = d.life / d.max;
+    if (graphics.hibit) { hi.blast(ctx, d.x, d.y, d.flash ? d.size : d.size * 1.5, f, d.flash, d.color); continue; }
     if (d.flash) {
       const sz = Math.round(d.size * (1.2 - f * 0.6));
       ctx.fillStyle = f > 0.5 ? '#fff6c8' : '#ff9a2f';
@@ -916,6 +903,7 @@ function drawScene() {
   const g = Math.max(2, Math.round(3 * scale));
   for (const p of sparks) {
     const f = p.life / p.max;
+    if (graphics.hibit) { hi.ember(ctx, p.x, p.y, g * 1.6, f); continue; }
     ctx.fillStyle = f > 0.66 ? '#ffe08a' : f > 0.33 ? '#ff9a2f' : '#ff3d1f';
     const side = g * (f > 0.66 ? 3 : f > 0.33 ? 2 : 1);
     ctx.fillRect(Math.round(p.x / g) * g - side / 2, Math.round(p.y / g) * g - side / 2, side, side);
@@ -926,7 +914,8 @@ function drawScene() {
     // flatten along the bounce axis and bulge across it
     const along = ball.r * (1 - 0.3 * ball.sq), across = ball.r * (1 + 0.2 * ball.sq);
     const rx = ball.sqAxis === 'x' ? along : across, ry = ball.sqAxis === 'x' ? across : along;
-    pixelBall(ball.x, ball.y, rx, ry, ballColor, Math.max(2, Math.round(ball.r / 4)));
+    if (graphics.hibit) hi.ball(ctx, ball.x, ball.y, rx, ry, ballColor);
+    else pixelBall(ball.x, ball.y, rx, ry, ballColor, Math.max(2, Math.round(ball.r / 4)));
   }
 
   text(String(score).padStart(5, '0'), W / 2, TOP * 0.76, 26 * scale, '#fff'); // centered above the bricks
@@ -934,21 +923,13 @@ function drawScene() {
   // lives as little balls: solid with a glint while you have them, a faint outline once lost
   const lr = 8 * scale;
   for (let i = 0; i < Math.max(3, lives); i++) {
-    const lx = W - 22 * scale - i * 26 * scale, ly = 24 * scale;
+    const lx = W - 52 - 22 * scale - i * 26 * scale, ly = 24 * scale;
     const lpx = Math.max(2, Math.round(lr / 4));
-    if (i < lives) pixelBall(lx, ly, lr, lr, '#c9cde0', lpx);
+    if (graphics.hibit) {
+      if (i < lives) hi.ball(ctx, lx, ly, lr, lr, '#c9cde0');
+      else { ctx.strokeStyle = 'rgba(201,205,224,0.3)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lx, ly, lr - 1, 0, Math.PI * 2); ctx.stroke(); }
+    } else if (i < lives) pixelBall(lx, ly, lr, lr, '#c9cde0', lpx);
     else pixelDisc(lx, ly, lr, lr, 'rgba(201,205,224,0.3)', lpx, true);
-  }
-
-  // music on/off, just left of the lives
-  const mpx = Math.max(2, Math.round(2.5 * scale)), ms = mpx * 8;
-  const mx = Math.round(W - 22 * scale - Math.max(3, lives) * 26 * scale - ms / 2 - 4), my = Math.round(24 * scale - ms / 2);
-  musicBtn = { x: mx + ms / 2, y: my + ms / 2, s: Math.max(ms, 24) * 0.9 };
-  ctx.fillStyle = sound.musicOff ? '#666' : '#ff6bd1';
-  NOTE.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === '#') ctx.fillRect(mx + c * mpx, my + r * mpx, mpx, mpx); }));
-  if (sound.musicOff) for (let i = 0; i < 8; i++) { // diagonal slash with a dark edge
-    ctx.fillStyle = '#1b1b2f'; ctx.fillRect(mx + i * mpx - mpx, my + (7 - i) * mpx, mpx, mpx);
-    ctx.fillStyle = '#ff4d4d'; ctx.fillRect(mx + i * mpx, my + (7 - i) * mpx, mpx, mpx);
   }
 
   // active timed effects, just under the bricks

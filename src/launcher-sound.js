@@ -10,19 +10,18 @@ const LEAD = [ // two bars of sixteenth steps; null is a rest
 ];
 const BASS_ROOTS = [43, 40, 36, 38]; // one per half bar: G, E, C, D
 let musicTimer = null, musicNext = 0, musicStep = 0;
-let musicOff = false;
 
 function playStep(step, at) {
-  if (musicOff) return;
+  if (sound.musicOff) return;
   const d = Math.max(0, at - ctx().currentTime);
   const s = step % LEAD.length;
-  if (LEAD[s] != null) tone({ type: 'square', from: midi(LEAD[s]), dur: STEP * 1.5, vol: 0.03, delay: d });
+  if (LEAD[s] != null) tone({ type: 'square', from: midi(LEAD[s]), dur: STEP * 1.5, vol: 0.03, delay: d, music: true });
   if (s % 2 === 0) {
     const root = BASS_ROOTS[Math.floor(s / 8)];
-    tone({ type: 'triangle', from: midi(s % 4 === 0 ? root : root + 12), dur: STEP * 1.8, vol: 0.1, delay: d });
+    tone({ type: 'triangle', from: midi(s % 4 === 0 ? root : root + 12), dur: STEP * 1.8, vol: 0.1, delay: d, music: true });
   }
-  if (s % 4 === 0) tone({ type: 'sine', from: 125, to: 45, dur: 0.1, vol: 0.16, delay: d }); // kick
-  if (s % 4 === 2) noise({ dur: 0.04, vol: 0.025, hold: 1, delay: d }); // hat
+  if (s % 4 === 0) tone({ type: 'sine', from: 125, to: 45, dur: 0.1, vol: 0.16, delay: d, music: true }); // kick
+  if (s % 4 === 2) noise({ dur: 0.04, vol: 0.025, hold: 1, delay: d, music: true }); // hat
 }
 
 function schedule() {
@@ -38,8 +37,8 @@ export const sfx = {
   unlock: sound.unlock,
   toggleMute: sound.toggleMute,
   get muted() { return sound.muted; },
-  get musicOff() { return musicOff; },
-  toggleMusic() { musicOff = !musicOff; return musicOff; },
+  get musicOff() { return sound.musicOff; },
+  toggleMusic() { return sound.toggleMusic(); },
 
   // starts the loop; safe to call repeatedly (needs a user gesture first)
   startMusic() {
